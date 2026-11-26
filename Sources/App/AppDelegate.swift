@@ -18,7 +18,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let files = items.filter { $0.name == "file" }.compactMap { $0.value }.map { URL(fileURLWithPath: $0) }
             guard !files.isEmpty else { continue }
             if panel == nil { panel = ProgressPanelController() }
-            panel?.add(files: files, format: format)
+            // Fenêtre de progression : lots (plusieurs fichiers) ; un fichier seul depuis le Finder = jauge sur son icône.
+            panel?.add(files: files, format: format, showWindow: files.count > 1)
         }
     }
 }

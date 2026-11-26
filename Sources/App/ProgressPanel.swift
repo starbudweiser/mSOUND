@@ -126,10 +126,15 @@ final class ProgressPanelController {
         model.onAllFinished = { [weak self] in self?.finished() }
     }
 
-    func add(files: [URL], format: AudioFormat) {
+    /// `showWindow` : lot de plusieurs fichiers ou conversion lancée depuis l'appli. Un seul fichier venant du Finder
+    /// n'a que la jauge sur son icône (la fenêtre n'apparaît alors qu'en cas d'échec).
+    func add(files: [URL], format: AudioFormat, showWindow: Bool) {
         closeWork?.cancel()
         model.add(files: files, format: format)
-        // La progression se voit sur l'icône du fichier dans le Finder ; la fenêtre n'apparaît qu'en cas d'échec.
+        if showWindow {
+            if !panel.isVisible { place() }
+            panel.orderFrontRegardless()
+        }
     }
 
     /// En haut à droite de l'écran où se trouve le pointeur (là où l'utilisateur travaille), sans prendre le focus.
