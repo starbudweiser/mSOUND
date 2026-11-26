@@ -33,11 +33,35 @@ import MSoundShared
 
 @MainActor final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     private var editors: [EditorWindowController] = []
+    var hasEditors: Bool { !editors.isEmpty }
+    private lazy var aboutWin = SecondaryWindow(size: NSSize(width: 356, height: 470), title: { Loc.t("about") }) { NSHostingView(rootView: AboutView()) }
+    private lazy var settingsWin = SecondaryWindow(size: NSSize(width: 520, height: 690), title: { Loc.t("settingsTitle") }) { NSHostingView(rootView: SettingsView()) }
+
+    /// Dock et menu seulement quand une fenêtre (éditeur, réglages, à propos) est ouverte ; sinon agent discret.
+    func updatePolicy() {
+        let any = !editors.isEmpty || aboutWin.isVisible || settingsWin.isVisible
+        NSApp.setActivationPolicy(any ? .regular : .accessory)
+    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Agent discret tant qu'aucune fenêtre d'éditeur n'est ouverte (les conversions du Finder restent silencieuses).
         NSApp.setActivationPolicy(.accessory)
+        AppTheme.apply()
         MainMenu.install(target: self)
+        for w in [aboutWin, settingsWin] { w.onVisibilityChange = { [weak self] in self?.updatePolicy() } }
+        // Mise à jour automatique : une recherche par jour, installation dès que rien n'est en cours.
+        Timer.scheduledTimer(withTimeInterval: 3600, repeats: true) { _ in MainActor.assumeIsolated { Updater.shared.tick() } }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 15) { Updater.shared.tick() }
+        // Lancée à la main (Dock, Finder) sans fichier : on ouvre les réglages pour que l'appli ne reste pas invisible.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
+            guard let self, NSApp.isActive, self.editors.isEmpty, !ProgressPanelController.shared.model.isRunning else { return }
+            self.settingsWin.show()
+        }
+    }
+
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        if !flag { settingsWin.show() }
+        return true
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
@@ -45,6 +69,8 @@ import MSoundShared
     func application(_ app: NSApplication, open urls: [URL]) {
         for url in urls {
             if url.isFileURL { openEditor(url); continue }
+            if url.host == "settings" { settingsWin.show(); continue }
+            if url.host == "about" { aboutWin.show(); continue }
             let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
             let files = items.filter { $0.name == "file" }.compactMap { $0.value }.map { URL(fileURLWithPath: $0) }
             guard !files.isEmpty else { continue }
@@ -64,10 +90,10 @@ import MSoundShared
             let c = EditorWindowController(doc: doc)
             c.onClose = { [weak self] c in
                 self?.editors.removeAll { $0 === c }
-                if self?.editors.isEmpty == true { NSApp.setActivationPolicy(.accessory) }
+                self?.updatePolicy()
             }
             editors.append(c)
-            NSApp.setActivationPolicy(.regular)
+            updatePolicy()
             c.window.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)
         } catch {
@@ -118,7 +144,8 @@ import MSoundShared
     @objc func zoomInAction() { if let d = current { d.zoom(factor: 0.5, anchorX: d.viewWidth / 2) } }
     @objc func zoomOutAction() { if let d = current { d.zoom(factor: 2, anchorX: d.viewWidth / 2) } }
     @objc func fitAction() { current?.fit() }
-    @objc func aboutAction() { NSApp.orderFrontStandardAboutPanel(nil) }
+    @objc func aboutAction() { aboutWin.show() }
+    @objc func settingsAction() { settingsWin.show() }
     @objc func quitAction() { NSApp.terminate(nil) }
 }
 
@@ -134,7 +161,7 @@ import MSoundShared
             let top = NSMenuItem(); top.submenu = m; main.addItem(top)
         }
         let sep = NSMenuItem.separator()
-        add("mSOUND", [item(Loc.t("about"), #selector(AppDelegate.aboutAction)), .separator(), item(Loc.t("quit"), #selector(AppDelegate.quitAction), "q")])
+        add("mSOUND", [item(Loc.t("about"), #selector(AppDelegate.aboutAction)), .separator(), item(Loc.t("settings"), #selector(AppDelegate.settingsAction), ","), .separator(), item(Loc.t("quit"), #selector(AppDelegate.quitAction), "q")])
         add(Loc.t("menuFile"), [item(Loc.t("open"), #selector(AppDelegate.openAction), "o"), item(Loc.t("close"), #selector(AppDelegate.closeAction), "w"),
                                 .separator(), item(Loc.t("export"), #selector(AppDelegate.exportAction), "e")])
         add(Loc.t("menuEdit"), [item(Loc.t("undo"), #selector(AppDelegate.undoAction), "z"), item(Loc.t("redo"), #selector(AppDelegate.redoAction), "z", [.command, .shift]),

@@ -35,7 +35,8 @@ final class ProgressModel: ObservableObject {
         for j in jobs { tokens[j.id] = j.token }
         let sources = Dictionary(uniqueKeysWithValues: jobs.map { ($0.id, $0.source) })
         let task = Task { [weak self] in
-            await BatchQueue().run(jobs, to: format) { ev in
+            var opts = ConvertOptions(); opts.bitrateKbps = Prefs.bitrate
+            await BatchQueue().run(jobs, to: format, options: opts) { ev in
                 Task { @MainActor in self?.apply(ev, sources: sources) }
             }
             await MainActor.run { self?.checkFinished() }

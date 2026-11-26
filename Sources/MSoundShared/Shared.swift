@@ -53,6 +53,38 @@ public enum Loc {
         "fadeOutShort": ["fr": "Fondu ↘", "en": "Fade out", "es": "Fund. ↘", "it": "Diss. ↘"],
         "normalizing": ["fr": "Normalisation…", "en": "Normalizing…", "es": "Normalizando…", "it": "Normalizzazione…"],
         "silentSel": ["fr": "La sélection est muette.", "en": "The selection is silent.", "es": "La selección está en silencio.", "it": "La selezione è muta."],
+        "settings": ["fr": "Réglages…", "en": "Settings…", "es": "Ajustes…", "it": "Impostazioni…"],
+        "settingsTitle": ["fr": "Réglages", "en": "Settings", "es": "Ajustes", "it": "Impostazioni"],
+        "setFinder": ["fr": "Menu du Finder", "en": "Finder menu", "es": "Menú del Finder", "it": "Menu del Finder"],
+        "setFinderHint": ["fr": "Formats proposés au clic droit sur un fichier audio. Activez l'extension dans Réglages Système › Extensions › Finder.", "en": "Formats offered when right-clicking an audio file. Enable the extension in System Settings › Extensions › Finder.", "es": "Formatos ofrecidos al hacer clic derecho en un archivo de audio. Active la extensión en Ajustes del Sistema › Extensiones › Finder.", "it": "Formati proposti con il clic destro su un file audio. Attiva l'estensione in Impostazioni di Sistema › Estensioni › Finder."],
+        "setQuality": ["fr": "Qualité des formats compressés (MP3, AAC)", "en": "Compressed format quality (MP3, AAC)", "es": "Calidad de los formatos comprimidos (MP3, AAC)", "it": "Qualità dei formati compressi (MP3, AAC)"],
+        "setTheme": ["fr": "Thème", "en": "Theme", "es": "Tema", "it": "Tema"],
+        "themeSystem": ["fr": "Automatique", "en": "Automatic", "es": "Automático", "it": "Automatico"],
+        "themeDark": ["fr": "Sombre", "en": "Dark", "es": "Oscuro", "it": "Scuro"],
+        "themeSand": ["fr": "Sable", "en": "Sand", "es": "Arena", "it": "Sabbia"],
+        "updTitle": ["fr": "Mises à jour", "en": "Updates", "es": "Actualizaciones", "it": "Aggiornamenti"],
+        "updAuto": ["fr": "Installer automatiquement les mises à jour", "en": "Install updates automatically", "es": "Instalar las actualizaciones automáticamente", "it": "Installa gli aggiornamenti automaticamente"],
+        "updCheck": ["fr": "Rechercher une mise à jour", "en": "Check for updates", "es": "Buscar actualizaciones", "it": "Cerca aggiornamenti"],
+        "updInstall": ["fr": "Installer la version %@", "en": "Install version %@", "es": "Instalar la versión %@", "it": "Installa la versione %@"],
+        "updVersion": ["fr": "Version %@", "en": "Version %@", "es": "Versión %@", "it": "Versione %@"],
+        "updChecking": ["fr": "Recherche en cours…", "en": "Checking…", "es": "Buscando…", "it": "Ricerca in corso…"],
+        "updUpToDate": ["fr": "Vous avez la dernière version (%@).", "en": "You have the latest version (%@).", "es": "Tiene la última versión (%@).", "it": "Hai l'ultima versione (%@)."],
+        "updAvailable": ["fr": "La version %@ est disponible.", "en": "Version %@ is available.", "es": "La versión %@ está disponible.", "it": "La versione %@ è disponibile."],
+        "updDownloading": ["fr": "Téléchargement et installation…", "en": "Downloading and installing…", "es": "Descargando e instalando…", "it": "Download e installazione…"],
+        "updFailed": ["fr": "Échec : %@", "en": "Failed: %@", "es": "Error: %@", "it": "Errore: %@"],
+        "updErrNone": ["fr": "Aucune version publiée trouvée.", "en": "No published release found.", "es": "No se encontró ninguna versión publicada.", "it": "Nessuna versione pubblicata trovata."],
+        "updErrDownload": ["fr": "Téléchargement impossible.", "en": "Download failed.", "es": "Descarga imposible.", "it": "Download non riuscito."],
+        "updErrSig": ["fr": "Signature de la mise à jour invalide.", "en": "Invalid update signature.", "es": "Firma de la actualización no válida.", "it": "Firma dell'aggiornamento non valida."],
+        "updErrVersion": ["fr": "Cette version n'est pas plus récente.", "en": "This version is not newer.", "es": "Esta versión no es más reciente.", "it": "Questa versione non è più recente."],
+        "updBusy": ["fr": "Installation reportée : un traitement est en cours.", "en": "Installation postponed: a job is running.", "es": "Instalación aplazada: hay un proceso en curso.", "it": "Installazione rimandata: un'operazione è in corso."],
+        "aboutVersion": ["fr": "Version %@ (%@)", "en": "Version %@ (%@)", "es": "Versión %@ (%@)", "it": "Versione %@ (%@)"],
+        "aboutTagline": ["fr": "Convertir, couper et retoucher vos fichiers audio, du clic droit du Finder à l'éditeur.", "en": "Convert, cut and edit your audio files, from the Finder's right-click to the editor.", "es": "Convierta, corte y retoque sus archivos de audio, del clic derecho del Finder al editor.", "it": "Converti, taglia e ritocca i tuoi file audio, dal clic destro del Finder all'editor."],
+        "aboutCollection": ["fr": "Fait partie du DESKTOP MAC TOOLKIT", "en": "Part of the DESKTOP MAC TOOLKIT", "es": "Parte del DESKTOP MAC TOOLKIT", "it": "Parte del DESKTOP MAC TOOLKIT"],
+        "aboutAuthors": ["fr": "Starbudweiser & Claude Code (Anthropic)", "en": "Starbudweiser & Claude Code (Anthropic)", "es": "Starbudweiser & Claude Code (Anthropic)", "it": "Starbudweiser & Claude Code (Anthropic)"],
+        "aboutLicense": ["fr": "Licence MIT. © 2026 Starbudweiser.", "en": "MIT License. © 2026 Starbudweiser.", "es": "Licencia MIT. © 2026 Starbudweiser.", "it": "Licenza MIT. © 2026 Starbudweiser."],
+        "aboutDisclaimer": ["fr": "Fourni en l'état, sans garantie. Gardez une copie de vos fichiers originaux.", "en": "Provided as is, without warranty. Keep a copy of your original files.", "es": "Se ofrece tal cual, sin garantía. Conserve una copia de sus archivos originales.", "it": "Fornito così com'è, senza garanzia. Conserva una copia dei file originali."],
+        "aboutCredit": ["fr": "Inspiré de Fission et de Sound Studio, sans lien avec Rogue Amoeba ni Felt Tip.", "en": "Inspired by Fission and Sound Studio, not affiliated with Rogue Amoeba or Felt Tip.", "es": "Inspirado en Fission y Sound Studio, sin relación con Rogue Amoeba ni Felt Tip.", "it": "Ispirato a Fission e Sound Studio, senza legami con Rogue Amoeba o Felt Tip."],
+        "support": ["fr": "Soutenir le projet", "en": "Support the project", "es": "Apoyar el proyecto", "it": "Sostieni il progetto"],
         "keepShort": ["fr": "Garder", "en": "Crop", "es": "Recortar", "it": "Ritaglia"],
         "markerShort": ["fr": "Repère", "en": "Marker", "es": "Marcador", "it": "Marcatore"],
         "mergeShort": ["fr": "Ajouter", "en": "Append", "es": "Añadir", "it": "Aggiungi"],
@@ -113,6 +145,10 @@ public enum Prefs {
     public static func menuFormats(domain: String) -> [String] {
         let saved = UserDefaults(suiteName: domain)?.stringArray(forKey: "menuFormats")
         return (saved?.isEmpty == false ? saved! : defaultMenuFormats)
+    }
+    public static var bitrate: Int {
+        get { let v = UserDefaults.standard.integer(forKey: "bitrate"); return v > 0 ? v : 256 }
+        set { UserDefaults.standard.set(newValue, forKey: "bitrate") }
     }
     public static func displayName(_ f: String) -> String {
         switch f { case "m4a": return "M4A (AAC)"; default: return f.uppercased() }

@@ -28,7 +28,7 @@ final class EditorDocument: ObservableObject {
     @Published var peaksProgress: Double = 0
     @Published var message: String?
     @Published var exportFormat: AudioFormat = .m4a
-    @Published var exportKbps = 256
+    @Published var exportKbps = Prefs.bitrate
     @Published var volume: Float = 1 { didSet { player?.volume = volume } }
 
     var fpp: Double = 1000                   // trames par pixel
