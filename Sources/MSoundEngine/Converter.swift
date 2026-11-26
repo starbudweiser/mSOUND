@@ -248,6 +248,7 @@ final class ClipReader {
     private var idx = 0
     private var cur: ExtAudioFileRef?
     private var remaining: Int64 = 0
+    private var clipOut: Int64 = 0, consumed: Int64 = 0
 
     init(clips: [Clip], infos: [URL: Converter.SourceInfo], outRate: Double, channels: UInt32) {
         self.clips = clips; self.infos = infos; self.outRate = outRate; self.channels = channels
@@ -283,7 +284,7 @@ final class ClipReader {
         }
         if c.start > 0 { ExtAudioFileSeek(file, c.start) }
         cur = file
-        remaining = outFrames(c)
+        remaining = outFrames(c); clipOut = remaining; consumed = 0
     }
 
     /// Lit jusqu'à `maxFrames` trames ; retourne 0 à la fin.
@@ -295,6 +296,12 @@ final class ClipReader {
             var abl = AudioBufferList(mNumberBuffers: 1, mBuffers: AudioBuffer(mNumberChannels: channels, mDataByteSize: n * channels * 4, mData: raw))
             guard ExtAudioFileRead(cur!, &n, &abl) == noErr else { throw ConvertError.encoderFailed("lecture") }
             if n == 0 { remaining = 0; continue }
+            let c = clips[idx]
+            if c.hasFX {
+                Effects.apply(raw.assumingMemoryBound(to: Float.self), frames: Int(n), channels: Int(channels),
+                              pos: consumed, length: clipOut, g0: c.g0, g1: c.g1)
+            }
+            consumed += Int64(n)
             remaining -= Int64(n)
             return n
         }

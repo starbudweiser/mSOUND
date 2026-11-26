@@ -31,7 +31,7 @@ final class WaveformView: NSView {
     override func draw(_ dirty: NSRect) {
         guard let ctx = NSGraphicsContext.current?.cgContext else { return }
         let dark = isDark
-        let bg = dark ? NSColor(srgbRed: 0.09, green: 0.09, blue: 0.10, alpha: 1) : NSColor(srgbRed: 0.95, green: 0.92, blue: 0.85, alpha: 1)
+        let bg = dark ? NSColor(srgbRed: 0.125, green: 0.125, blue: 0.14, alpha: 1) : NSColor(srgbRed: 0.95, green: 0.92, blue: 0.85, alpha: 1)
         let wave = dark ? NSColor(srgbRed: 0.18, green: 0.83, blue: 0.75, alpha: 1) : NSColor(srgbRed: 0.66, green: 0.41, blue: 0.10, alpha: 1)
         let accent = dark ? NSColor(srgbRed: 0.04, green: 0.52, blue: 1, alpha: 1) : NSColor(srgbRed: 0.73, green: 0.45, blue: 0.10, alpha: 1)
         let muted = dark ? NSColor(white: 0.6, alpha: 1) : NSColor(srgbRed: 0.49, green: 0.45, blue: 0.35, alpha: 1)
@@ -102,6 +102,10 @@ final class WaveformView: NSView {
         add(Loc.t("delete"), #selector(ctxDelete), enabled: hasSel)
         add(Loc.t("keep"), #selector(ctxKeep), enabled: hasSel)
         m.addItem(.separator())
+        add(Loc.t("normalize"), #selector(ctxNorm))
+        add(Loc.t("fadeIn"), #selector(ctxFadeIn), enabled: hasSel)
+        add(Loc.t("fadeOut"), #selector(ctxFadeOut), enabled: hasSel)
+        m.addItem(.separator())
         add(Loc.t("marker"), #selector(ctxMarker))
         return m
     }
@@ -111,6 +115,9 @@ final class WaveformView: NSView {
     @objc private func ctxPaste() { doc.paste() }
     @objc private func ctxDelete() { doc.deleteSel() }
     @objc private func ctxKeep() { doc.keepSel() }
+    @objc private func ctxNorm() { doc.normalize() }
+    @objc private func ctxFadeIn() { doc.fadeIn() }
+    @objc private func ctxFadeOut() { doc.fadeOut() }
     @objc private func ctxMarker() { doc.addMarker() }
 
     private func drawRuler(muted: NSColor, ctx: CGContext) {

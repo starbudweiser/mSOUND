@@ -5,7 +5,11 @@ public struct Clip: Equatable, Sendable {
     public var source: URL
     public var start: Int64
     public var length: Int64
+    /// Gain linéaire au début et à la fin du segment (rampe linéaire entre les deux : fondus, normalisation).
+    public var g0: Float = 1
+    public var g1: Float = 1
     public init(source: URL, start: Int64, length: Int64) { self.source = source; self.start = start; self.length = length }
+    public var hasFX: Bool { g0 != 1 || g1 != 1 }
     public var end: Int64 { start + length }
 }
 
@@ -62,6 +66,8 @@ public final class EditModel {
                 let left = f - pos
                 var a = arr[i], b = arr[i]
                 a.length = left; b.start += left; b.length -= left
+                let mid = a.g0 + (a.g1 - a.g0) * Float(left) / Float(arr[i].length)
+                a.g1 = mid; b.g0 = mid
                 arr.replaceSubrange(i...i, with: [a, b]); return
             }
             pos = end
@@ -123,6 +129,35 @@ public final class EditModel {
 
     /// Ajoute un fichier à la fin (fusion).
     public func append(_ clip: Clip) { insert([clip], at: totalFrames) }
+
+    /// Multiplie le gain de la plage (normalisation, gain).
+    public func applyGain(_ range: Range<Int64>, factor: Float) {
+        transform(range) { c, _, _ in c.g0 *= factor; c.g1 *= factor }
+    }
+
+    /// Fondu sur toute la plage : entrant (0 → 1) ou sortant (1 → 0).
+    public func fade(_ range: Range<Int64>, fadeIn: Bool) {
+        let r = clamp(range), span = Float(max(r.upperBound - r.lowerBound, 1))
+        transform(r) { c, pos, _ in
+            var p0 = Float(pos - r.lowerBound) / span, p1 = Float(pos + c.length - r.lowerBound) / span
+            if !fadeIn { p0 = 1 - p0; p1 = 1 - p1 }
+            c.g0 *= p0; c.g1 *= p1
+        }
+    }
+
+    private func transform(_ range: Range<Int64>, _ f: (inout Clip, Int64, Int) -> Void) {
+        let r = clamp(range)
+        guard r.lowerBound < r.upperBound else { return }
+        push()
+        var c = clips
+        Self.split(r.lowerBound, &c); Self.split(r.upperBound, &c)
+        var pos: Int64 = 0
+        for i in c.indices {
+            if pos >= r.lowerBound && pos + c[i].length <= r.upperBound { f(&c[i], pos, i) }
+            pos += c[i].length
+        }
+        clips = c
+    }
 
     public func addMarker(at frame: Int64, name: String) {
         push()

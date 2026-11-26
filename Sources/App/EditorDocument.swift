@@ -216,6 +216,27 @@ final class EditorDocument: ObservableObject {
         edited { model.insert(c, at: at); transport.playhead = at + c.reduce(0) { $0 + $1.length } } }
     func deleteSel() { guard let s = selection else { return }; edited { model.delete(s); transport.playhead = s.lowerBound } }
     func keepSel() { guard let s = selection else { return }; edited { model.keepOnly(s); transport.playhead = 0 } }
+    func gain(db: Float) { guard let s = selection ?? (total > 0 ? 0..<total : nil) else { return }
+        let f = powf(10, db / 20); edited { model.applyGain(s, factor: f) } }
+    func fadeIn() { guard let s = selection else { return }; edited { model.fade(s, fadeIn: true) } }
+    func fadeOut() { guard let s = selection else { return }; edited { model.fade(s, fadeIn: false) } }
+    /// Amène la crête de la sélection (ou de tout le fichier) à −1 dBFS.
+    func normalize() {
+        let range = selection ?? 0..<total
+        let clips = model.clips(in: range)
+        guard !clips.isEmpty else { return }
+        message = Loc.t("normalizing")
+        Task.detached { [weak self] in
+            let peak = (try? Effects.peak(of: clips)) ?? 0
+            await MainActor.run {
+                guard let self else { return }
+                self.message = nil
+                guard peak > 0.000_01 else { self.message = Loc.t("silentSel"); return }
+                let f = powf(10, -1.0 / 20) / peak
+                self.edited { self.model.applyGain(range, factor: f) }
+            }
+        }
+    }
     func splitHere() { let f = transport.playhead; edited { model.addMarker(at: f, name: Loc.t("markerName", model.markers.count + 1)) } }
     func addMarker() { splitHere() }
     func removeMarker(_ id: UUID) { edited { model.removeMarker(id) } }

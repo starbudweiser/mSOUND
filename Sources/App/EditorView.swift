@@ -16,16 +16,25 @@ struct OverviewRepresentable: NSViewRepresentable {
     func updateNSView(_ v: OverviewView, context: Context) { v.needsDisplay = true }
 }
 
-/// Bouton d'outil façon Fission : icône avec sa légende dessous.
-struct ToolButton: View {
+/// Bouton d'outil : icône seule, fond au survol, légende en infobulle.
+struct ToolIcon: View {
     let symbol: String, title: String, enabled: Bool, action: () -> Void
+    @State private var hover = false
     var body: some View {
         Button(action: action) {
-            VStack(spacing: 4) {
-                Image(systemName: symbol).font(.system(size: 15, weight: .medium)).frame(height: 18)
-                Text(title).font(.system(size: 10)).lineLimit(1)
-            }.frame(width: 62, height: 46)
-        }.buttonStyle(FlatButton()).disabled(!enabled).opacity(enabled ? 1 : 0.4).help(title)
+            Image(systemName: symbol).font(.system(size: 14, weight: .medium)).frame(width: 32, height: 30)
+                .background(hover && enabled ? Theme.ctl : Color.clear)
+                .clipShape(RoundedRectangle(cornerRadius: Theme.radius)).contentShape(Rectangle())
+        }.buttonStyle(.plain).foregroundColor(Theme.text).disabled(!enabled).opacity(enabled ? 1 : 0.32)
+            .onHover { hover = $0 }.help(title)
+    }
+}
+
+/// Groupe d'outils sur une pastille.
+struct ToolGroup<Content: View>: View {
+    @ViewBuilder var content: Content
+    var body: some View {
+        HStack(spacing: 0) { content }.padding(2).background(Theme.card).clipShape(RoundedRectangle(cornerRadius: Theme.radius))
     }
 }
 
@@ -35,38 +44,44 @@ struct ZoomSlider: View {
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: "minus.magnifyingglass").foregroundColor(Theme.text2)
-            Slider(value: Binding(get: { zoom.level }, set: { doc.setZoomLevel($0) }), in: 0...1).frame(width: 64).tint(Theme.accent)
+            Slider(value: Binding(get: { zoom.level }, set: { doc.setZoomLevel($0) }), in: 0...1).frame(width: 90).tint(Theme.accent)
             Image(systemName: "plus.magnifyingglass").foregroundColor(Theme.text2)
         }.font(.system(size: 12))
     }
 }
 
+/// Barre du bas : zoom à gauche, lecture au centre, volume à droite.
 struct BottomTransport: View {
     @ObservedObject var transport: Transport
     @ObservedObject var doc: EditorDocument
     var body: some View {
         let rate = doc.rate
         let remaining = (doc.selection?.upperBound ?? doc.total) - transport.playhead
-        HStack(spacing: 6) {
-            ZoomSlider(zoom: doc.zoomState, doc: doc).frame(width: 130, alignment: .leading)
-            Spacer()
-            Text(timeString(transport.playhead, rate: rate)).font(.system(size: 13, weight: .semibold, design: .monospaced)).foregroundColor(Theme.text)
-                .frame(width: 88, alignment: .trailing)
-            IconButton(symbol: "backward.end.fill", help: Loc.t("toStart"), enabled: true) { doc.seek(to: 0) }
-            Button { doc.togglePlay() } label: {
-                Image(systemName: transport.isPlaying ? "pause.fill" : "play.fill").font(.system(size: 14, weight: .medium)).frame(width: 40, height: 28)
-            }.buttonStyle(FlatButton(primary: true)).help(Loc.t("playPause"))
-            IconButton(symbol: "stop.fill", help: "Stop", enabled: true) { doc.stop() }
-            IconButton(symbol: "forward.end.fill", help: Loc.t("toEnd"), enabled: true) { doc.seek(to: doc.total) }
-            Text("−" + timeString(max(0, remaining), rate: rate)).font(.system(size: 13, weight: .semibold, design: .monospaced)).foregroundColor(Theme.text2)
-                .frame(width: 88, alignment: .leading)
-            Spacer()
-            HStack(spacing: 8) {
-                Image(systemName: "speaker.fill").foregroundColor(Theme.text2)
-                Slider(value: Binding(get: { Double(doc.volume) }, set: { doc.volume = Float($0) }), in: 0...1).frame(width: 64).tint(Theme.accent)
-                Image(systemName: "speaker.wave.3.fill").foregroundColor(Theme.text2)
-            }.font(.system(size: 12)).frame(width: 130, alignment: .trailing)
+        ZStack {
+            HStack {
+                ZoomSlider(zoom: doc.zoomState, doc: doc)
+                Spacer()
+                HStack(spacing: 8) {
+                    Image(systemName: "speaker.fill").foregroundColor(Theme.text2)
+                    Slider(value: Binding(get: { Double(doc.volume) }, set: { doc.volume = Float($0) }), in: 0...1).frame(width: 90).tint(Theme.accent)
+                    Image(systemName: "speaker.wave.3.fill").foregroundColor(Theme.text2)
+                }.font(.system(size: 12))
+            }
+            HStack(spacing: 10) {
+                Text(timeString(transport.playhead, rate: rate)).font(.system(size: 15, weight: .semibold, design: .monospaced))
+                    .foregroundColor(Theme.text).frame(width: 96, alignment: .trailing)
+                ToolIcon(symbol: "backward.end.fill", title: Loc.t("toStart"), enabled: true) { doc.seek(to: 0) }
+                Button { doc.togglePlay() } label: {
+                    Image(systemName: transport.isPlaying ? "pause.fill" : "play.fill").font(.system(size: 15, weight: .medium)).frame(width: 46, height: 30)
+                }.buttonStyle(FlatButton(primary: true)).help(Loc.t("playPause"))
+                ToolIcon(symbol: "stop.fill", title: "Stop", enabled: true) { doc.stop() }
+                ToolIcon(symbol: "forward.end.fill", title: Loc.t("toEnd"), enabled: true) { doc.seek(to: doc.total) }
+                Text("\u{2212}" + timeString(max(0, remaining), rate: rate)).font(.system(size: 15, weight: .semibold, design: .monospaced))
+                    .foregroundColor(Theme.text2).frame(width: 96, alignment: .leading)
+            }
         }
+        .padding(.horizontal, 24).frame(height: 56)
+        .background(Theme.card).clipShape(RoundedRectangle(cornerRadius: Theme.radius))
     }
 }
 
@@ -107,37 +122,11 @@ struct KV: View {
     }
 }
 
-struct TimeView: View {
-    @ObservedObject var transport: Transport
-    let rate: Double
-    var body: some View {
-        Text(timeString(transport.playhead, rate: rate))
-            .font(.system(size: 17, weight: .semibold, design: .monospaced)).foregroundColor(Theme.text)
-            .padding(.horizontal, 12).padding(.vertical, 6)
-            .background(Theme.card).clipShape(RoundedRectangle(cornerRadius: Theme.radius))
-    }
-}
-
-struct TransportBar: View {
-    @ObservedObject var transport: Transport
-    let doc: EditorDocument
-    var body: some View {
-        HStack(spacing: 6) {
-            IconButton(symbol: "backward.end.fill", help: Loc.t("toStart"), enabled: true) { doc.seek(to: 0) }
-            Button { doc.togglePlay() } label: {
-                Image(systemName: transport.isPlaying ? "pause.fill" : "play.fill").font(.system(size: 13, weight: .medium)).frame(width: 30, height: 24)
-            }.buttonStyle(FlatButton(primary: true)).help(Loc.t("playPause"))
-            IconButton(symbol: "stop.fill", help: "Stop", enabled: true) { doc.stop() }
-            IconButton(symbol: "forward.end.fill", help: Loc.t("toEnd"), enabled: true) { doc.seek(to: doc.total) }
-            TimeView(transport: transport, rate: doc.rate).padding(.leading, 6)
-        }
-    }
-}
-
 struct EditorView: View {
     @ObservedObject var doc: EditorDocument
     var onOpenFiles: ([URL]) -> Void = { _ in }
     @State private var dropping = false
+    @AppStorage("inspectorVisible") private var inspectorVisible = false
 
     private var infoLine: String {
         let ch = doc.info.channels == 1 ? "mono" : doc.info.channels == 2 ? "stéréo" : "\(doc.info.channels) canaux"
@@ -147,30 +136,18 @@ struct EditorView: View {
     var body: some View {
         let _ = doc.revision
         VStack(spacing: 0) {
-            // Barre d'outils (façon Fission) : légendes sous les icônes ; nom du fichier à droite
-            HStack(spacing: 6) {
-                toolbar
-                Spacer(minLength: 16)
-                VStack(alignment: .trailing, spacing: 2) {
-                    (Text("m").foregroundColor(Theme.brand) + Text("SOUND").foregroundColor(Theme.text)).font(.system(size: 13, weight: .bold))
-                    Text(doc.url.lastPathComponent).font(.system(size: 12, weight: .semibold)).foregroundColor(Theme.text).lineLimit(1)
-                    Text(infoLine).font(.system(size: 11)).foregroundColor(Theme.text2).lineLimit(1)
-                }
-            }.padding(.leading, 84).padding(.trailing, 28).frame(height: 66)
-
-            HStack(alignment: .top, spacing: 24) {
-                sidebar.frame(width: 240)
+            titleBar
+            toolRow
+            HStack(alignment: .top, spacing: 16) {
                 VStack(spacing: 12) {
-                    OverviewRepresentable(doc: doc).frame(height: 56)
-                    WaveformRepresentable(doc: doc).frame(minHeight: 200)
-                    statusLine
+                    OverviewRepresentable(doc: doc).frame(height: 44).background(Theme.card).clipShape(RoundedRectangle(cornerRadius: Theme.radius))
+                    WaveformRepresentable(doc: doc).frame(minHeight: 200).background(Theme.card).clipShape(RoundedRectangle(cornerRadius: Theme.radius))
                     BottomTransport(transport: doc.transport, doc: doc)
                 }.frame(minWidth: 0, maxWidth: .infinity, maxHeight: .infinity)
-                inspector.frame(width: 260)
-            }.padding(.horizontal, 28).padding(.top, 4).padding(.bottom, 16).frame(maxHeight: .infinity)
-            exportBar
+                if inspectorVisible { inspector.frame(width: 260) }
+            }.padding(.horizontal, 28).padding(.top, 4).padding(.bottom, 24).frame(maxHeight: .infinity)
         }
-        .frame(minWidth: 1280, minHeight: 620)
+        .frame(minWidth: 1000, minHeight: 560)
         .background(Theme.bg)
         .overlay {
             if dropping {
@@ -193,118 +170,124 @@ struct EditorView: View {
     }
 
     // MARK: Zones
-    private var toolbar: some View {
-        let hasSel = doc.selection != nil
-        return HStack(spacing: 6) {
-            ToolButton(symbol: "arrow.uturn.backward", title: Loc.t("undo"), enabled: doc.canUndo) { doc.undo() }
-            ToolButton(symbol: "arrow.uturn.forward", title: Loc.t("redo"), enabled: doc.canRedo) { doc.redo() }
-            Divider().frame(height: 30).padding(.horizontal, 6)
-            ToolButton(symbol: "scissors", title: Loc.t("cut"), enabled: hasSel) { doc.cut() }
-            ToolButton(symbol: "doc.on.doc", title: Loc.t("copy"), enabled: hasSel) { doc.copySel() }
-            ToolButton(symbol: "doc.on.clipboard", title: Loc.t("paste"), enabled: !EditorDocument.clipboard.isEmpty) { doc.paste() }
-            ToolButton(symbol: "trash", title: Loc.t("delete"), enabled: hasSel) { doc.deleteSel() }
-            ToolButton(symbol: "crop", title: Loc.t("keepShort"), enabled: hasSel) { doc.keepSel() }
-            Divider().frame(height: 30).padding(.horizontal, 6)
-            ToolButton(symbol: "flag", title: Loc.t("markerShort"), enabled: true) { doc.addMarker() }
-            ToolButton(symbol: "plus.rectangle.on.rectangle", title: Loc.t("mergeShort"), enabled: true) { pickAndAppend() }
-            ToolButton(symbol: "arrow.left.and.right", title: Loc.t("fit"), enabled: true) { doc.fit() }
+
+    /// Zone de la barre de titre : nom du fichier au centre, export à droite.
+    private var titleBar: some View {
+        ZStack {
+            VStack(spacing: 2) {
+                Text(doc.url.lastPathComponent).font(.system(size: 13, weight: .semibold)).foregroundColor(Theme.text)
+                    .lineLimit(1).truncationMode(.middle)
+                Text(infoLine).font(.system(size: 11)).foregroundColor(Theme.text2).lineLimit(1)
+            }.frame(maxWidth: 320)
+            HStack { Spacer(); exportCluster }
+        }.padding(.leading, 84).padding(.trailing, 28).frame(height: 56)
+    }
+
+    private var exportCluster: some View {
+        HStack(spacing: 8) {
+            Menu {
+                Picker(Loc.t("exportTitle"), selection: $doc.exportFormat) {
+                    ForEach(AudioFormat.allCases, id: \.self) { f in Text(Prefs.displayName(f.rawValue)).tag(f) }
+                }.pickerStyle(.inline)
+                if !doc.exportFormat.isLossless {
+                    Picker(Loc.t("quality"), selection: $doc.exportKbps) {
+                        ForEach([128, 192, 256, 320], id: \.self) { k in Text("\(k) kb/s").tag(k) }
+                    }.pickerStyle(.inline)
+                }
+            } label: {
+                Text(Prefs.displayName(doc.exportFormat.rawValue) + (doc.exportFormat.isLossless ? "" : " · \(doc.exportKbps)"))
+                    .font(.system(size: 12.5, weight: .medium)).foregroundColor(Theme.text)
+                    .padding(.horizontal, 12).frame(height: 30).background(Theme.ctl)
+                    .clipShape(RoundedRectangle(cornerRadius: Theme.radius))
+            }.menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
+            Button(doc.selection != nil ? Loc.t("exportSelection") : Loc.t("exportWhole")) { doc.export() }
+                .buttonStyle(FlatButton(primary: true))
         }
     }
 
-    private var statusLine: some View {
-        HStack {
-            if let s = doc.selection {
-                Text("\(Loc.t("selection")) \(timeString(s.lowerBound, rate: doc.rate)) → \(timeString(s.upperBound, rate: doc.rate)) · \(timeString(s.upperBound - s.lowerBound, rate: doc.rate, ms: false))")
-            } else { Text(Loc.t("whole")) }
-            Spacer()
-        }.font(.system(size: 11.5)).foregroundColor(Theme.text2)
-    }
-
-    private var sidebar: some View {
-        Card(title: Loc.t("markers"), fill: true) {
-            if doc.model.markers.isEmpty {
-                Spacer()
-                Text(Loc.t("noMarkers")).font(.system(size: 12)).multilineTextAlignment(.center).foregroundColor(Theme.text2)
-                    .frame(maxWidth: .infinity)
-                Spacer()
-            } else {
-                ScrollView {
-                    VStack(spacing: 2) {
-                        ForEach(doc.model.markers) { m in
-                            HStack {
-                                Text(m.name).foregroundColor(Theme.text)
-                                Spacer()
-                                Text(timeString(m.frame, rate: doc.rate, ms: false)).foregroundColor(Theme.text2)
-                            }
-                            .font(.system(size: 12)).padding(.vertical, 5).contentShape(Rectangle())
-                            .onTapGesture { doc.selection = nil; doc.seek(to: m.frame) }
-                            .contextMenu { Button(Loc.t("delete")) { doc.removeMarker(m.id) } }
-                        }
-                    }
-                }.frame(maxHeight: .infinity)
+    /// Rangée d'outils : groupes sur pastilles, icônes seules ; sélection à droite.
+    private var toolRow: some View {
+        let hasSel = doc.selection != nil
+        return HStack(spacing: 10) {
+            ToolGroup {
+                ToolIcon(symbol: "arrow.uturn.backward", title: Loc.t("undo"), enabled: doc.canUndo) { doc.undo() }
+                ToolIcon(symbol: "arrow.uturn.forward", title: Loc.t("redo"), enabled: doc.canRedo) { doc.redo() }
             }
-            Button(Loc.t("detectSilences")) { doc.markSilences() }.buttonStyle(FlatButton())
-                .frame(maxWidth: .infinity, alignment: .center).padding(.top, 6)   // bouton centré en bas de la carte
-        }.frame(maxHeight: .infinity)
+            ToolGroup {
+                ToolIcon(symbol: "scissors", title: Loc.t("cut"), enabled: hasSel) { doc.cut() }
+                ToolIcon(symbol: "doc.on.doc", title: Loc.t("copy"), enabled: hasSel) { doc.copySel() }
+                ToolIcon(symbol: "doc.on.clipboard", title: Loc.t("paste"), enabled: !EditorDocument.clipboard.isEmpty) { doc.paste() }
+                ToolIcon(symbol: "trash", title: Loc.t("delete"), enabled: hasSel) { doc.deleteSel() }
+                ToolIcon(symbol: "crop", title: Loc.t("keep"), enabled: hasSel) { doc.keepSel() }
+            }
+            ToolGroup {
+                Menu {
+                    Button(Loc.t("normalize")) { doc.normalize() }
+                    Button(Loc.t("fadeIn")) { doc.fadeIn() }.disabled(!hasSel)
+                    Button(Loc.t("fadeOut")) { doc.fadeOut() }.disabled(!hasSel)
+                    Divider()
+                    Button(Loc.t("gainUp")) { doc.gain(db: 3) }
+                    Button(Loc.t("gainDown")) { doc.gain(db: -3) }
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "slider.horizontal.3").font(.system(size: 14, weight: .medium))
+                        Text(Loc.t("menuEffects")).font(.system(size: 12.5, weight: .medium))
+                    }.foregroundColor(Theme.text).padding(.horizontal, 10).frame(height: 30)
+                }.menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
+            }
+            ToolGroup {
+                ToolIcon(symbol: "flag", title: Loc.t("marker"), enabled: true) { doc.addMarker() }
+                ToolIcon(symbol: "plus.rectangle.on.rectangle", title: Loc.t("mergeShort"), enabled: true) { pickAndAppend() }
+                ToolIcon(symbol: "arrow.left.and.right", title: Loc.t("fit"), enabled: true) { doc.fit() }
+            }
+            Spacer(minLength: 12)
+            if let s = doc.selection {
+                Text("\(timeString(s.lowerBound, rate: doc.rate)) → \(timeString(s.upperBound, rate: doc.rate))  ·  \(timeString(s.upperBound - s.lowerBound, rate: doc.rate, ms: false))")
+                    .font(.system(size: 12, weight: .medium, design: .monospaced)).foregroundColor(Theme.text2).lineLimit(1)
+            }
+            ToolGroup {
+                ToolIcon(symbol: "sidebar.right", title: Loc.t("inspector"), enabled: true) { inspectorVisible.toggle() }
+                    .foregroundColor(inspectorVisible ? Theme.accent : Theme.text)
+            }
+        }.padding(.horizontal, 28).padding(.bottom, 8).frame(height: 44)
     }
 
     private var inspector: some View {
         VStack(alignment: .leading, spacing: 16) {
+            Card(title: Loc.t("markers"), fill: true) {
+                if doc.model.markers.isEmpty {
+                    Spacer()
+                    Text(Loc.t("noMarkers")).font(.system(size: 12)).multilineTextAlignment(.center).foregroundColor(Theme.text2)
+                        .frame(maxWidth: .infinity)
+                    Spacer()
+                } else {
+                    ScrollView {
+                        VStack(spacing: 2) {
+                            ForEach(doc.model.markers) { m in
+                                HStack {
+                                    Text(m.name).foregroundColor(Theme.text)
+                                    Spacer()
+                                    Text(timeString(m.frame, rate: doc.rate, ms: false)).foregroundColor(Theme.text2)
+                                }
+                                .font(.system(size: 12)).padding(.vertical, 5).contentShape(Rectangle())
+                                .onTapGesture { doc.selection = nil; doc.seek(to: m.frame) }
+                                .contextMenu { Button(Loc.t("delete")) { doc.removeMarker(m.id) } }
+                            }
+                        }
+                    }.frame(maxHeight: .infinity)
+                }
+                Button(Loc.t("detectSilences")) { doc.markSilences() }.buttonStyle(FlatButton())
+                    .frame(maxWidth: .infinity, alignment: .center).padding(.top, 6)
+            }.frame(maxHeight: .infinity)
             Card(title: Loc.t("file")) {
                 KV(k: "Format", v: doc.url.pathExtension.uppercased())
                 KV(k: Loc.t("sampleRate"), v: "\(String(format: "%g", doc.info.sampleRate / 1000)) kHz")
                 KV(k: Loc.t("channels"), v: "\(doc.info.channels)")
                 KV(k: Loc.t("bitDepth"), v: "\(doc.info.bitDepth) bits")
                 KV(k: Loc.t("size"), v: fileSize())
-            }
-            Card(title: Loc.t("montage")) {
-                KV(k: Loc.t("duration"), v: timeString(doc.total, rate: doc.rate, ms: false))
                 KV(k: Loc.t("segments"), v: "\(doc.model.clips.count)")
-                KV(k: Loc.t("markers"), v: "\(doc.model.markers.count)")
             }
-            Card(title: Loc.t("selection"), fill: true) {
-                if let s = doc.selection {
-                    KV(k: Loc.t("start"), v: timeString(s.lowerBound, rate: doc.rate))
-                    KV(k: Loc.t("end"), v: timeString(s.upperBound, rate: doc.rate))
-                    KV(k: Loc.t("duration"), v: timeString(s.upperBound - s.lowerBound, rate: doc.rate))
-                } else {
-                    Spacer()
-                    Text(Loc.t("noSelection")).font(.system(size: 12)).multilineTextAlignment(.center).foregroundColor(Theme.text2)
-                        .frame(maxWidth: .infinity)
-                    Spacer()
-                }
-            }.frame(maxHeight: .infinity)
         }
-    }
-
-    private var exportBar: some View {
-        HStack(spacing: 18) {
-            VStack(alignment: .leading, spacing: 5) {
-                Text(Loc.t("exportTitle").uppercased()).font(.system(size: 10.5, weight: .semibold)).tracking(0.5).foregroundColor(Theme.text2)
-                HStack(spacing: 4) {
-                    ForEach(AudioFormat.allCases, id: \.self) { f in
-                        Button(Prefs.displayName(f.rawValue)) { doc.exportFormat = f }
-                            .buttonStyle(ChipStyle(on: doc.exportFormat == f))
-                    }
-                }
-            }
-            if !doc.exportFormat.isLossless {
-                VStack(alignment: .leading, spacing: 5) {
-                    Text(Loc.t("quality").uppercased()).font(.system(size: 10.5, weight: .semibold)).tracking(0.5).foregroundColor(Theme.text2)
-                    HStack(spacing: 4) {
-                        ForEach([128, 192, 256, 320], id: \.self) { k in
-                            Button("\(k)") { doc.exportKbps = k }.buttonStyle(ChipStyle(on: doc.exportKbps == k))
-                        }
-                    }
-                }
-            }
-            Spacer()
-            Text("\(Loc.t("scope")) : ").font(.system(size: 12)).foregroundColor(Theme.text2)
-                + Text(doc.selection != nil ? Loc.t("selection") : Loc.t("whole")).font(.system(size: 12, weight: .semibold)).foregroundColor(Theme.text)
-            Button(doc.selection != nil ? Loc.t("exportSelection") : Loc.t("exportWhole")) { doc.export() }
-                .buttonStyle(FlatButton(primary: true))
-        }
-        .padding(.horizontal, 28).padding(.vertical, 14).background(Theme.card.opacity(0.6))
     }
 
     // MARK: Utilitaires

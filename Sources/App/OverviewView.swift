@@ -19,7 +19,7 @@ final class OverviewView: NSView {
     override func draw(_ dirty: NSRect) {
         guard let ctx = NSGraphicsContext.current?.cgContext else { return }
         let dark = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-        let bg = dark ? NSColor(srgbRed: 0.09, green: 0.09, blue: 0.10, alpha: 1) : NSColor(srgbRed: 0.95, green: 0.92, blue: 0.85, alpha: 1)
+        let bg = dark ? NSColor(srgbRed: 0.125, green: 0.125, blue: 0.14, alpha: 1) : NSColor(srgbRed: 0.95, green: 0.92, blue: 0.85, alpha: 1)
         let wave = dark ? NSColor(srgbRed: 0.18, green: 0.83, blue: 0.75, alpha: 1) : NSColor(srgbRed: 0.66, green: 0.41, blue: 0.10, alpha: 1)
         let accent = dark ? NSColor(srgbRed: 0.04, green: 0.52, blue: 1, alpha: 1) : NSColor(srgbRed: 0.73, green: 0.45, blue: 0.10, alpha: 1)
         let head = dark ? NSColor(srgbRed: 0.18, green: 0.83, blue: 0.75, alpha: 1) : NSColor(srgbRed: 0.05, green: 0.58, blue: 0.53, alpha: 1)

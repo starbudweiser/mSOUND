@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>CFBundleExecutable</key><string>mSOUND</string>
+<key>CFBundleIdentifier</key><string>fr.stephan.msound.dev</string>
+<key>CFBundleName</key><string>mSOUND dev</string>
+<key>CFBundleDisplayName</key><string>mSOUND dev</string>
+<key>CFBundlePackageType</key><string>APPL</string>
+<key>CFBundleShortVersionString</key><string>0.1.0</string>
+<key>CFBundleVersion</key><string>0.1.0</string>
+<key>CFBundleIconFile</key><string>mSOUND</string>
+<key>LSMinimumSystemVersion</key><string>14.0</string>
+<key>NSHighResolutionCapable</key><true/>
+<key>CFBundleDocumentTypes</key><array><dict><key>CFBundleTypeName</key><string>Audio</string><key>CFBundleTypeRole</key><string>Editor</string>
+<key>LSHandlerRank</key><string>Alternate</string><key>LSItemContentTypes</key><array><string>public.audio</string></array></dict></array>
+<key>CFBundleURLTypes</key><array><dict><key>CFBundleURLName</key><string>fr.stephan.msound.dev</string>
+<key>CFBundleURLSchemes</key><array><string>msound-dev</string></array></dict></array>
+</dict></plist>

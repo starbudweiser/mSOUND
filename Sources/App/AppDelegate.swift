@@ -10,7 +10,7 @@ import MSoundShared
 
     init(doc: EditorDocument) {
         self.doc = doc
-        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1360, height: 680),
+        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1180, height: 680),
                           styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
                           backing: .buffered, defer: false)
         super.init()
@@ -24,7 +24,7 @@ import MSoundShared
         }))
         host.sizingOptions = []
         window.contentView = host
-        window.contentMinSize = NSSize(width: 1280, height: 620)
+        window.contentMinSize = NSSize(width: 1000, height: 560)
         window.delegate = self
         window.center()
     }
@@ -84,7 +84,8 @@ import MSoundShared
         switch item.action {
         case #selector(undoAction): return d.canUndo
         case #selector(redoAction): return d.canRedo
-        case #selector(cutAction), #selector(copyAction), #selector(deleteAction), #selector(keepAction): return d.selection != nil
+        case #selector(cutAction), #selector(copyAction), #selector(deleteAction), #selector(keepAction),
+             #selector(fadeInAction), #selector(fadeOutAction): return d.selection != nil
         case #selector(pasteAction): return !EditorDocument.clipboard.isEmpty
         default: return true
         }
@@ -104,6 +105,11 @@ import MSoundShared
     @objc func pasteAction() { current?.paste() }
     @objc func deleteAction() { current?.deleteSel() }
     @objc func keepAction() { current?.keepSel() }
+    @objc func normalizeAction() { current?.normalize() }
+    @objc func fadeInAction() { current?.fadeIn() }
+    @objc func fadeOutAction() { current?.fadeOut() }
+    @objc func gainUpAction() { current?.gain(db: 3) }
+    @objc func gainDownAction() { current?.gain(db: -3) }
     @objc func selectAllAction() { current?.selectAll() }
     @objc func markerAction() { current?.addMarker() }
     @objc func playAction() { current?.togglePlay() }
@@ -138,6 +144,9 @@ import MSoundShared
                                 item(Loc.t("keep"), #selector(AppDelegate.keepAction), "k"),
                                 item(Loc.t("selectAll"), #selector(AppDelegate.selectAllAction), "a"),
                                 .separator(), item(Loc.t("marker"), #selector(AppDelegate.markerAction), "m", [])])
+        add(Loc.t("menuEffects"), [item(Loc.t("normalize"), #selector(AppDelegate.normalizeAction), "n", [.command, .shift]),
+                                   item(Loc.t("fadeIn"), #selector(AppDelegate.fadeInAction), "", []), item(Loc.t("fadeOut"), #selector(AppDelegate.fadeOutAction), "", []),
+                                   .separator(), item(Loc.t("gainUp"), #selector(AppDelegate.gainUpAction), "", []), item(Loc.t("gainDown"), #selector(AppDelegate.gainDownAction), "", [])])
         add(Loc.t("menuPlay"), [item(Loc.t("playPause"), #selector(AppDelegate.playAction), "p"), item(Loc.t("toStart"), #selector(AppDelegate.startAction), "\u{F729}", .command),
                                 item(Loc.t("toEnd"), #selector(AppDelegate.endAction), "\u{F72B}", .command), .separator(),
                                 item(Loc.t("zoomIn"), #selector(AppDelegate.zoomInAction), "+"), item(Loc.t("zoomOut"), #selector(AppDelegate.zoomOutAction), "-"),
