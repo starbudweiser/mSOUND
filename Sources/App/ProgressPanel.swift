@@ -113,6 +113,9 @@ final class ProgressPanelController {
                         styleMask: [.titled, .closable, .nonactivatingPanel, .fullSizeContentView],
                         backing: .buffered, defer: false)
         panel.isFloatingPanel = true
+        panel.level = .statusBar   // au-dessus des fenêtres normales
+        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .ignoresCycle]
+        panel.becomesKeyOnlyIfNeeded = true
         panel.hidesOnDeactivate = false
         panel.titleVisibility = .hidden
         panel.titlebarAppearsTransparent = true
@@ -126,8 +129,17 @@ final class ProgressPanelController {
     func add(files: [URL], format: AudioFormat) {
         closeWork?.cancel()
         model.add(files: files, format: format)
-        if !panel.isVisible { panel.center(); }
+        if !panel.isVisible { place() }
         panel.orderFrontRegardless()
+    }
+
+    /// En haut à droite de l'écran où se trouve le pointeur (là où l'utilisateur travaille), sans prendre le focus.
+    private func place() {
+        let mouse = NSEvent.mouseLocation
+        let screen = NSScreen.screens.first { NSMouseInRect(mouse, $0.frame, false) } ?? NSScreen.main
+        guard let f = screen?.visibleFrame else { panel.center(); return }
+        let size = panel.frame.size
+        panel.setFrameOrigin(NSPoint(x: f.maxX - size.width - 24, y: f.maxY - size.height - 24))
     }
 
     private func scheduleClose() {

@@ -26,6 +26,8 @@ final class ProgressModel: ObservableObject {
     var outputs: [URL] { rows.compactMap { if case .done(let u) = $0.state { return u }; return nil } }
 
     func add(files: [URL], format: AudioFormat) {
+        // Nouvelle demande alors que tout est terminé : on repart d'une liste vide (pas d'historique).
+        if !isRunning { rows.removeAll(); tasks.removeAll() }
         let jobs = files.map { BatchJob(source: $0) }
         rows += jobs.map { Row(id: $0.id, name: $0.source.lastPathComponent, format: format) }
         let sources = Dictionary(uniqueKeysWithValues: jobs.map { ($0.id, $0.source) })
