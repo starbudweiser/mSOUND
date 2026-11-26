@@ -225,4 +225,13 @@ final class FilterTests: XCTestCase {
         m.undo(); m.undo()
         XCTAssertEqual(m.clips[0].g0, f, accuracy: 1e-4)
     }
+
+    func testMeterPeakAndBallistics() {
+        let x: [Float] = [0, 0.5, -0.25, 0.1]
+        XCTAssertEqual(x.withUnsafeBufferPointer { Level.peakDB($0.baseAddress!, count: 4) }, -6.02, accuracy: 0.05)
+        XCTAssertEqual([Float](repeating: 0, count: 8).withUnsafeBufferPointer { Level.peakDB($0.baseAddress!, count: 8) }, -120)
+        XCTAssertEqual(Level.ballistic(previous: -30, new: -10, dt: 0.05), -10)            // montée immédiate
+        XCTAssertEqual(Level.ballistic(previous: -10, new: -60, dt: 0.5), -22, accuracy: 0.01)   // retombée 24 dB/s
+        XCTAssertEqual(Level.ballistic(previous: -10, new: -12, dt: 1), -12)                // ne tombe pas sous la mesure
+    }
 }

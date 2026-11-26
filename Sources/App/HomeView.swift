@@ -7,6 +7,8 @@ import MSoundShared
 struct HomeView: View {
     var open: ([URL]) -> Void
     var openPanel: () -> Void
+    var record: () -> Void
+    @ObservedObject private var rec = Recorder.shared
     var settings: () -> Void
     @State private var dropping = false
     private var recents: [URL] { Array(NSDocumentController.shared.recentDocumentURLs.prefix(5)) }
@@ -18,10 +20,14 @@ struct HomeView: View {
                 Text(Loc.t("aboutTagline")).font(.system(size: 12)).foregroundColor(Theme.text2).multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
             }.padding(.top, 8)
+            if rec.isRecording { RecordingPanel { record() } } else {
             VStack(spacing: 14) {
                 Image(systemName: "waveform").font(.system(size: 34, weight: .light)).foregroundColor(dropping ? Theme.accent : Theme.text2)
                 Text(Loc.t("homeDrop")).font(.system(size: 14, weight: .medium)).foregroundColor(Theme.text)
-                Button(Loc.t("homeOpen"), action: openPanel).buttonStyle(FlatButton(primary: true))
+                HStack(spacing: 8) {
+                    Button(Loc.t("homeOpen"), action: openPanel).buttonStyle(FlatButton(primary: true))
+                    Button(action: record) { HStack(spacing: 6) { Image(systemName: "record.circle").foregroundColor(Theme.danger); Text(Loc.t("recStart")) } }.buttonStyle(FlatButton())
+                }
             }
             .frame(maxWidth: .infinity, minHeight: 190)
             .background(dropping ? Theme.accent.opacity(0.12) : Theme.card)
@@ -36,6 +42,7 @@ struct HomeView: View {
                     }
                 }
                 return true
+            }
             }
             if !recents.isEmpty {
                 VStack(alignment: .leading, spacing: 4) {

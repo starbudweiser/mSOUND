@@ -17,7 +17,7 @@ APP="$HOME/Applications/Applications Personnelles/mSOUND.app"
 version="$(plutil -extract CFBundleShortVersionString raw "$APP/Contents/Info.plist")"; tag="v$version"
 if gh release view "$tag" -R "$OWNER/$REPO" >/dev/null 2>&1 && [ "$REPLACE" != 1 ]; then echo "release : $tag existe déjà (--replace)" >&2; exit 1; fi
 
-DIST="$PWD/build/notarized" "$TOOLS/notarize_app.sh" "$APP"
+DIST="$PWD/build/notarized" APP_ENTITLEMENTS="$PWD/mSOUND.entitlements" "$TOOLS/notarize_app.sh" "$APP"
 stage="$(mktemp -d)"; asset="$REPO-$version-macOS-arm64.zip"
 cp "$PWD/build/notarized/mSOUND.zip" "$stage/$asset"; (cd "$stage" && shasum -a 256 "$asset" > "$asset.sha256")
 if gh release view "$tag" -R "$OWNER/$REPO" >/dev/null 2>&1; then

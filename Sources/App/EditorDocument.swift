@@ -157,7 +157,7 @@ final class EditorDocument: ObservableObject {
     func togglePlay() { transport.isPlaying ? pause() : play() }
 
     func play() {
-        guard working == nil else { return }
+        guard working == nil, !Recorder.shared.isRecording else { return }
         guard let player else { return }
         var from = transport.playhead
         var until: Int64? = nil

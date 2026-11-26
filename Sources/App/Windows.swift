@@ -134,6 +134,7 @@ struct SettingsView: View {
                     .frame(maxWidth: .infinity, alignment: .leading).fixedSize(horizontal: false, vertical: true).padding(.top, 4)
             }
             Card(title: Loc.t("setShortcuts")) { ShortcutSettings() }
+            Card(title: Loc.t("recFolder")) { RecordFolderSetting() }
             Card(title: Loc.t("setQuality")) {
                 HStack(spacing: 4) {
                     ForEach([128, 192, 256, 320], id: \.self) { k in Button("\(k) kb/s") { bitrate = k }.buttonStyle(ChipStyle(on: bitrate == k)) }
@@ -166,5 +167,22 @@ struct SettingsView: View {
         .padding(.horizontal, 28).padding(.top, 36).padding(.bottom, 28)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(Theme.bg)
+    }
+}
+
+/// Dossier où sont rangés les enregistrements du micro.
+struct RecordFolderSetting: View {
+    @AppStorage("recordFolder") private var folder = ""
+    var body: some View {
+        HStack {
+            Text((folder.isEmpty ? Recorder.folder.path : folder).replacingOccurrences(of: NSHomeDirectory(), with: "~"))
+                .font(.system(size: 12)).foregroundColor(Theme.text).lineLimit(1).truncationMode(.middle)
+            Spacer()
+            Button(Loc.t("recChoose")) {
+                let p = NSOpenPanel(); p.canChooseDirectories = true; p.canChooseFiles = false; p.canCreateDirectories = true
+                p.directoryURL = Recorder.folder
+                if p.runModal() == .OK, let u = p.url { folder = u.path }
+            }.buttonStyle(FlatButton())
+        }
     }
 }

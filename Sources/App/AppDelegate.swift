@@ -37,9 +37,10 @@ import MSoundShared
     private lazy var homeWin = SecondaryWindow(size: NSSize(width: 560, height: 450), title: { "mSOUND" }) { [unowned self] in
         NSHostingView(rootView: HomeView(open: { urls in MainActor.assumeIsolated { urls.forEach(self.openEditor) } },
                                          openPanel: { MainActor.assumeIsolated { self.openAction() } },
+                                         record: { MainActor.assumeIsolated { self.recordAction() } },
                                          settings: { MainActor.assumeIsolated { self.settingsWin.show() } }))
     }
-    private lazy var settingsWin = SecondaryWindow(size: NSSize(width: 520, height: 790), title: { Loc.t("settingsTitle") }) { NSHostingView(rootView: SettingsView()) }
+    private lazy var settingsWin = SecondaryWindow(size: NSSize(width: 520, height: 860), title: { Loc.t("settingsTitle") }) { NSHostingView(rootView: SettingsView()) }
 
     /// Dock et menu seulement quand une fenêtre (éditeur, réglages, à propos) est ouverte ; sinon agent discret.
     func updatePolicy() {
@@ -170,6 +171,16 @@ import MSoundShared
     @objc func zoomInAction() { if let d = current { d.zoom(factor: 0.5, anchorX: d.viewWidth / 2) } }
     @objc func zoomOutAction() { if let d = current { d.zoom(factor: 2, anchorX: d.viewWidth / 2) } }
     @objc func fitAction() { current?.fit() }
+    /// Enregistre ou arrête : le fichier devient une nouvelle timeline de la fenêtre active (ou une nouvelle fenêtre).
+    @objc func recordAction() {
+        if !Recorder.shared.isRecording { editors.forEach { $0.session.active.stop() } }
+        Recorder.shared.toggle { [weak self] url in
+            guard let self else { return }
+            if let c = self.editors.first(where: { $0.window === NSApp.keyWindow }) ?? self.editors.last {
+                c.session.open([url]); c.window.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true)
+            } else { self.openEditors([url]) }
+        }
+    }
     @objc func aboutAction() { aboutWin.show() }
     @objc func settingsAction() { settingsWin.show() }
     @objc func quitAction() { NSApp.terminate(nil) }
@@ -188,7 +199,7 @@ import MSoundShared
         }
         let sep = NSMenuItem.separator()
         add("mSOUND", [item(Loc.t("about"), #selector(AppDelegate.aboutAction)), .separator(), item(Loc.t("settings"), #selector(AppDelegate.settingsAction), ","), .separator(), item(Loc.t("quit"), #selector(AppDelegate.quitAction), "q")])
-        add(Loc.t("menuFile"), [item(Loc.t("open"), #selector(AppDelegate.openAction), "o"), item(Loc.t("merge"), #selector(AppDelegate.importAction), "i"), item(Loc.t("close"), #selector(AppDelegate.closeAction), "w"),
+        add(Loc.t("menuFile"), [item(Loc.t("open"), #selector(AppDelegate.openAction), "o"), item(Loc.t("merge"), #selector(AppDelegate.importAction), "i"), item(Loc.t("recToggle"), #selector(AppDelegate.recordAction), "r"), item(Loc.t("close"), #selector(AppDelegate.closeAction), "w"),
                                 .separator(), item(Loc.t("export"), #selector(AppDelegate.exportAction), "e")])
         add(Loc.t("menuEdit"), [item(Loc.t("undo"), #selector(AppDelegate.undoAction), "z"), item(Loc.t("redo"), #selector(AppDelegate.redoAction), "z", [.command, .shift]),
                                 .separator(), item(Loc.t("cut"), #selector(AppDelegate.cutAction), "x"), item(Loc.t("copy"), #selector(AppDelegate.copyAction), "c"),

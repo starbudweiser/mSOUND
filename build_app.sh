@@ -30,12 +30,20 @@ cat > "$APP/Contents/Info.plist" <<P
 <key>CFBundleIconFile</key><string>mSOUND</string>
 <key>LSMinimumSystemVersion</key><string>14.0</string>
 <key>NSHighResolutionCapable</key><true/>
+<key>NSMicrophoneUsageDescription</key><string>mSOUND uses the microphone to record samples.</string>
+<key>CFBundleLocalizations</key><array><string>fr</string><string>en</string><string>es</string><string>it</string></array>
+<key>CFBundleDevelopmentRegion</key><string>en</string>
 <key>CFBundleDocumentTypes</key><array><dict><key>CFBundleTypeName</key><string>Audio</string><key>CFBundleTypeRole</key><string>Editor</string>
 <key>LSHandlerRank</key><string>Alternate</string><key>LSItemContentTypes</key><array><string>public.audio</string></array></dict></array>
 <key>CFBundleURLTypes</key><array><dict><key>CFBundleURLName</key><string>$ID</string>
 <key>CFBundleURLSchemes</key><array><string>$SCHEME</string></array></dict></array>
 </dict></plist>
 P
+# Texte de la demande d'accès au micro, dans les 4 langues
+for pair in "fr|mSOUND utilise le micro pour enregistrer des échantillons." "en|mSOUND uses the microphone to record samples." "es|mSOUND usa el micrófono para grabar muestras." "it|mSOUND usa il microfono per registrare campioni."; do
+  l="${pair%%|*}"; t="${pair#*|}"; mkdir -p "$APP/Contents/Resources/$l.lproj"
+  printf '"NSMicrophoneUsageDescription" = "%s";\n' "$t" > "$APP/Contents/Resources/$l.lproj/InfoPlist.strings"
+done
 cat > "$EXT/Contents/Info.plist" <<P
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">

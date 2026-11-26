@@ -51,6 +51,17 @@ struct ZoomSlider: View {
 }
 
 /// Barre du bas : zoom à gauche, lecture au centre, volume à droite.
+/// Bouton d'enregistrement du micro (rouge) : démarre ou arrête.
+struct RecordButton: View {
+    @ObservedObject var rec = Recorder.shared
+    var body: some View {
+        Button { (NSApp.delegate as? AppDelegate)?.recordAction() } label: {
+            Image(systemName: rec.isRecording ? "stop.circle.fill" : "record.circle").font(.system(size: 18, weight: .medium))
+                .foregroundColor(Theme.danger).frame(width: 32, height: 30).contentShape(Rectangle())
+        }.buttonStyle(.plain).help(Loc.t("recStart") + "  ⌘R")
+    }
+}
+
 struct BottomTransport: View {
     @ObservedObject var transport: Transport
     @ObservedObject var doc: EditorDocument
@@ -68,6 +79,7 @@ struct BottomTransport: View {
                 }.font(.system(size: 12))
             }
             HStack(spacing: 10) {
+                RecordButton()
                 Text(timeString(transport.playhead, rate: rate)).font(.system(size: 15, weight: .semibold, design: .monospaced))
                     .foregroundColor(Theme.text).frame(width: 96, alignment: .trailing)
                 ToolIcon(symbol: "backward.end.fill", title: Loc.t("toStart"), enabled: true) { doc.seek(to: 0) }
@@ -127,6 +139,7 @@ struct EditorView: View {
     @ObservedObject var session: EditorSession
     @State private var dropping = false
     @State private var fxOpen = false
+    @ObservedObject private var rec = Recorder.shared
     @AppStorage("inspectorVisible") private var inspectorVisible = false
 
     private var infoLine: String {
@@ -138,12 +151,17 @@ struct EditorView: View {
         let _ = doc.revision
         VStack(spacing: 0) {
             titleBar
+                .alert(rec.error ?? "", isPresented: Binding(get: { rec.error != nil }, set: { if !$0 { rec.error = nil } })) { Button("OK") {} }
             if session.docs.count > 1 { TimelineTabs(session: session) }
             toolRow
             HStack(alignment: .top, spacing: 16) {
                 VStack(spacing: 12) {
-                    OverviewRepresentable(doc: doc).frame(height: 44).background(Theme.card).clipShape(RoundedRectangle(cornerRadius: Theme.radius))
-                    WaveformRepresentable(doc: doc).frame(minHeight: 200).background(Theme.card).clipShape(RoundedRectangle(cornerRadius: Theme.radius))
+                    if rec.isRecording {
+                        RecordingPanel { rec.stop(save: true) }
+                    } else {
+                        OverviewRepresentable(doc: doc).frame(height: 44).background(Theme.card).clipShape(RoundedRectangle(cornerRadius: Theme.radius))
+                        WaveformRepresentable(doc: doc).frame(minHeight: 200).background(Theme.card).clipShape(RoundedRectangle(cornerRadius: Theme.radius))
+                    }
                     BottomTransport(transport: doc.transport, doc: doc)
                 }.frame(minWidth: 0, maxWidth: .infinity, maxHeight: .infinity)
                 if inspectorVisible { inspector.frame(width: 260) }
