@@ -208,4 +208,21 @@ final class FilterTests: XCTestCase {
         let x = try readAll(r.url)
         XCTAssertEqual(toneDB(x, f: 440, from: 0.1, to: 0.9), 20 * log10(0.15), accuracy: 1.0)
     }
+
+    func testGainNudgesCoalesceIntoOneUndo() {
+        let a = URL(fileURLWithPath: "/a.wav")
+        let m = EditModel(source: a, frames: 1000, sampleRate: 44100)
+        let f = powf(10, 1.0 / 20)
+        for _ in 0..<5 { m.applyGain(0..<1000, factor: f, coalesce: true) }
+        XCTAssertEqual(m.clips[0].g0, powf(f, 5), accuracy: 1e-4)
+        m.undo()
+        XCTAssertEqual(m.clips[0].g0, 1, accuracy: 1e-6)
+        XCTAssertFalse(m.canUndo)
+        // une autre édition entre deux retouches : pas de fusion
+        m.applyGain(0..<1000, factor: f, coalesce: true)
+        m.addMarker(at: 10, name: "x")
+        m.applyGain(0..<1000, factor: f, coalesce: true)
+        m.undo(); m.undo()
+        XCTAssertEqual(m.clips[0].g0, f, accuracy: 1e-4)
+    }
 }

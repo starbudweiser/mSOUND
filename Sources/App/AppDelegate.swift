@@ -10,7 +10,7 @@ import MSoundShared
 
     init(session: EditorSession) {
         self.session = session
-        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1180, height: 680),
+        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1240, height: 680),
                           styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
                           backing: .buffered, defer: false)
         super.init()
@@ -22,7 +22,7 @@ import MSoundShared
         let host = NSHostingView(rootView: EditorRoot(session: session))
         host.sizingOptions = []
         window.contentView = host
-        window.contentMinSize = NSSize(width: 1000, height: 560)
+        window.contentMinSize = NSSize(width: 1120, height: 560)
         window.delegate = self
         window.center()
         session.onEmpty = { [weak self] in self?.window.close() }
@@ -39,7 +39,7 @@ import MSoundShared
                                          openPanel: { MainActor.assumeIsolated { self.openAction() } },
                                          settings: { MainActor.assumeIsolated { self.settingsWin.show() } }))
     }
-    private lazy var settingsWin = SecondaryWindow(size: NSSize(width: 520, height: 690), title: { Loc.t("settingsTitle") }) { NSHostingView(rootView: SettingsView()) }
+    private lazy var settingsWin = SecondaryWindow(size: NSSize(width: 520, height: 790), title: { Loc.t("settingsTitle") }) { NSHostingView(rootView: SettingsView()) }
 
     /// Dock et menu seulement quand une fenêtre (éditeur, réglages, à propos) est ouverte ; sinon agent discret.
     func updatePolicy() {
@@ -132,8 +132,7 @@ import MSoundShared
         switch item.action {
         case #selector(undoAction): return d.canUndo
         case #selector(redoAction): return d.canRedo
-        case #selector(cutAction), #selector(copyAction), #selector(deleteAction), #selector(keepAction),
-             #selector(fadeInAction), #selector(fadeOutAction): return d.selection != nil
+        case #selector(cutAction), #selector(copyAction), #selector(deleteAction), #selector(keepAction): return d.selection != nil
         case #selector(pasteAction): return !EditorDocument.clipboard.isEmpty
         default: return true
         }

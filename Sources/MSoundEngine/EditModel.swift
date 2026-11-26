@@ -41,15 +41,19 @@ public final class EditModel {
     public var canUndo: Bool { !undoStack.isEmpty }
     public var canRedo: Bool { !redoStack.isEmpty }
 
+    private var lastGain: (range: Range<Int64>, time: Date)?
     private func push() {
+        lastGain = nil
         undoStack.append(State(clips: clips, markers: markers))
         redoStack.removeAll()
     }
     public func undo() {
+        lastGain = nil
         guard let s = undoStack.popLast() else { return }
         redoStack.append(State(clips: clips, markers: markers)); clips = s.clips; markers = s.markers
     }
     public func redo() {
+        lastGain = nil
         guard let s = redoStack.popLast() else { return }
         undoStack.append(State(clips: clips, markers: markers)); clips = s.clips; markers = s.markers
     }
@@ -151,8 +155,12 @@ public final class EditModel {
     }
 
     /// Multiplie le gain de la plage (normalisation, gain).
-    public func applyGain(_ range: Range<Int64>, factor: Float) {
-        transform(range) { c, _, _ in c.g0 *= factor; c.g1 *= factor }
+    /// `coalesce` : des retouches de gain répétées sur la même plage (flèches haut/bas) ne comptent que pour une annulation.
+    public func applyGain(_ range: Range<Int64>, factor: Float, coalesce: Bool = false) {
+        let r = clamp(range)
+        let merge = coalesce && !undoStack.isEmpty && lastGain?.range == r && Date().timeIntervalSince(lastGain!.time) < 1.5
+        transform(range, push: !merge) { c, _, _ in c.g0 *= factor; c.g1 *= factor }
+        lastGain = (r, Date())
     }
 
     /// Fondu sur toute la plage : entrant (0 → 1) ou sortant (1 → 0).
@@ -165,10 +173,10 @@ public final class EditModel {
         }
     }
 
-    private func transform(_ range: Range<Int64>, _ f: (inout Clip, Int64, Int) -> Void) {
+    private func transform(_ range: Range<Int64>, push doPush: Bool = true, _ f: (inout Clip, Int64, Int) -> Void) {
         let r = clamp(range)
         guard r.lowerBound < r.upperBound else { return }
-        push()
+        if doPush { push() }
         var c = clips
         Self.split(r.lowerBound, &c); Self.split(r.upperBound, &c)
         var pos: Int64 = 0

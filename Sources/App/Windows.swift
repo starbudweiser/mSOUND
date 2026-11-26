@@ -133,6 +133,7 @@ struct SettingsView: View {
                 Text(Loc.t("setFinderHint")).font(.system(size: 11.5)).foregroundColor(Theme.text2)
                     .frame(maxWidth: .infinity, alignment: .leading).fixedSize(horizontal: false, vertical: true).padding(.top, 4)
             }
+            Card(title: Loc.t("setShortcuts")) { ShortcutSettings() }
             Card(title: Loc.t("setQuality")) {
                 HStack(spacing: 4) {
                     ForEach([128, 192, 256, 320], id: \.self) { k in Button("\(k) kb/s") { bitrate = k }.buttonStyle(ChipStyle(on: bitrate == k)) }

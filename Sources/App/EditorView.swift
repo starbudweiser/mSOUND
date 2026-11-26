@@ -149,7 +149,7 @@ struct EditorView: View {
                 if inspectorVisible { inspector.frame(width: 260) }
             }.padding(.horizontal, 28).padding(.top, 4).padding(.bottom, 24).frame(maxHeight: .infinity)
         }
-        .frame(minWidth: 1000, minHeight: 560)
+        .frame(minWidth: 1120, minHeight: 560)
         .background(Theme.bg)
         .overlay {
             if dropping {
@@ -230,6 +230,7 @@ struct EditorView: View {
                     }.foregroundColor(Theme.text).padding(.horizontal, 10).frame(height: 30).contentShape(Rectangle())
                 }.buttonStyle(.plain).disabled(doc.working != nil)
                     .popover(isPresented: $fxOpen, arrowEdge: .bottom) { EffectsPanel(doc: doc, session: session) { fxOpen = false } }
+                ShortcutButtons(doc: doc, session: session)
             }
             ToolGroup {
                 ToolIcon(symbol: "flag", title: Loc.t("marker"), enabled: true) { doc.addMarker() }

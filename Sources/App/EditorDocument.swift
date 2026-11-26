@@ -312,26 +312,58 @@ final class EditorDocument: ObservableObject {
     }
     func deleteSel() { guard let s = selection else { return }; edited { model.delete(s); transport.playhead = s.lowerBound } }
     func keepSel() { guard let s = selection else { return }; edited { model.keepOnly(s); transport.playhead = 0 } }
-    func gain(db: Float) { guard let s = selection ?? (total > 0 ? 0..<total : nil) else { return }
-        let f = powf(10, db / 20); edited { model.applyGain(s, factor: f) } }
-    func fadeIn() { guard let s = selection else { return }; edited { model.fade(s, fadeIn: true) } }
-    func fadeOut() { guard let s = selection else { return }; edited { model.fade(s, fadeIn: false) } }
-    /// Amène la crête de la sélection (ou de tout le fichier) à −1 dBFS.
+    /// Retouche d'effet qui garde la sélection et relance la lecture si elle tournait.
+    private func effect(_ block: () -> Void) {
+        guard working == nil else { return }
+        let sel = selection, was = transport.isPlaying, pos = transport.playhead
+        edited(block)
+        selection = sel
+        if was { transport.playhead = pos; play() }
+        redraw.send()
+    }
+
+    /// Gain en dB sur la sélection, ou sur tout l'échantillon sans sélection. `coalesce` : une seule annulation pour une série de retouches.
+    func gain(db: Float, coalesce: Bool = false) {
+        guard total > 0 else { return }
+        let r = selection ?? 0..<total, f = powf(10, db / 20)
+        effect { model.applyGain(r, factor: f, coalesce: coalesce) }
+    }
+    /// Fondu sur la sélection ; sans sélection : 1 s (au plus la moitié) au début ou à la fin de l'échantillon.
+    func fadeIn() {
+        guard total > 0 else { return }
+        let r = selection ?? 0..<min(Int64(rate), total / 2)
+        effect { model.fade(r, fadeIn: true) }
+    }
+    func fadeOut() {
+        guard total > 0 else { return }
+        let r = selection ?? (total - min(Int64(rate), total / 2))..<total
+        effect { model.fade(r, fadeIn: false) }
+    }
+    /// Amène la crête de la sélection (ou de tout l'échantillon) à −1 dBFS.
     func normalize() {
+        guard working == nil, total > 0 else { return }
         let range = selection ?? 0..<total
         let clips = model.clips(in: range)
         guard !clips.isEmpty else { return }
-        message = Loc.t("normalizing")
+        working = Working(title: Loc.t("normalizing"), progress: 0)
         Task.detached { [weak self] in
             let peak = (try? Effects.peak(of: clips)) ?? 0
             await MainActor.run {
                 guard let self else { return }
-                self.message = nil
+                self.working = nil
                 guard peak > 0.000_01 else { self.message = Loc.t("silentSel"); return }
                 let f = powf(10, -1.0 / 20) / peak
-                self.edited { self.model.applyGain(range, factor: f) }
+                self.effect { self.model.applyGain(range, factor: f) }
             }
         }
+    }
+
+    /// Déplace la tête de lecture de `frames` trames (flèches gauche/droite), en gardant la vue sur elle.
+    func nudgePlayhead(by frames: Int64) {
+        let f = max(0, min(total, transport.playhead + frames))
+        seek(to: f)
+        if transport.playhead < scroll || transport.playhead > scroll + visibleFrames { scrollTo(centerFrame: f) }
+        redraw.send()
     }
     func splitHere() { let f = transport.playhead; edited { model.addMarker(at: f, name: Loc.t("markerName", model.markers.count + 1)) } }
     func addMarker() { splitHere() }

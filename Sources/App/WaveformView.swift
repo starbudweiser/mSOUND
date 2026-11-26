@@ -196,7 +196,16 @@ final class WaveformView: NSView {
         case "m": doc.addMarker()
         default:
             // ⌫ (supprimer) et ⌦ (Suppr) : retirer la sélection
-            if e.keyCode == 51 || e.keyCode == 117 { doc.deleteSel() } else { super.keyDown(with: e) }
+            switch e.keyCode {
+            case 51, 117: doc.deleteSel()
+            case 123, 124:      // ← → : une colonne de l'écran (⇧ : dix, ⌥ : une trame)
+                let step: Int64 = e.modifierFlags.contains(.option) ? 1 : max(1, Int64(doc.fpp)) * (e.modifierFlags.contains(.shift) ? 10 : 1)
+                doc.nudgePlayhead(by: e.keyCode == 123 ? -step : step)
+            case 125, 126:      // ↓ ↑ : −/+ 1 dB (⇧ : 3 dB) sur la sélection ou sur tout l'échantillon
+                let db: Float = e.modifierFlags.contains(.shift) ? 3 : 1
+                doc.gain(db: e.keyCode == 126 ? db : -db, coalesce: true)
+            default: super.keyDown(with: e)
+            }
         }
     }
 }

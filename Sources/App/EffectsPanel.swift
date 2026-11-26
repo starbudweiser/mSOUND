@@ -74,8 +74,8 @@ struct EffectsPanel: View {
             if !(allTimelines && session.docs.count > 1) { header(Loc.t("fxLevels"))
             HStack(spacing: 6) {
                 Button(Loc.t("normalize")) { close(); doc.normalize() }.buttonStyle(FlatButton())
-                Button(Loc.t("fadeInShort")) { close(); doc.fadeIn() }.buttonStyle(FlatButton()).disabled(!hasSel)
-                Button(Loc.t("fadeOutShort")) { close(); doc.fadeOut() }.buttonStyle(FlatButton()).disabled(!hasSel)
+                Button(Loc.t("fadeInShort")) { close(); doc.fadeIn() }.buttonStyle(FlatButton())
+                Button(Loc.t("fadeOutShort")) { close(); doc.fadeOut() }.buttonStyle(FlatButton())
                 Button("+3 dB") { close(); doc.gain(db: 3) }.buttonStyle(FlatButton())
                 Button("−3 dB") { close(); doc.gain(db: -3) }.buttonStyle(FlatButton())
             } }
