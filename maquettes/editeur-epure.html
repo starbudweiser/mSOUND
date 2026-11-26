@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><title>mSOUND — éditeur épuré</title>
+<style>
+:root{--bg:#131316;--well:#202024;--card:#232327;--ctl:#2C2C31;--text:#F5F5F7;--t2:#98989F;--acc:#0A84FF;--bar:#14B8A6;--sel:rgba(10,132,255,.28);--r:4px}
+body.sand{--bg:#ECE3D0;--well:#F2EBD9;--card:#F7F1E3;--ctl:#E1D6BD;--text:#2B2619;--t2:#7D725A;--acc:#B9731A;--bar:#14917f;--sel:rgba(185,115,26,.25)}
+*{box-sizing:border-box}body{margin:0;background:#000;font:13px -apple-system,system-ui,sans-serif;color:var(--text);display:grid;place-items:center;min-height:100vh;padding:24px}
+.top{position:fixed;top:10px;right:16px;display:flex;gap:8px}.top button{background:#2C2C31;color:#fff;border:0;padding:6px 12px;border-radius:4px;cursor:pointer}
+.win{width:1180px;height:680px;background:var(--bg);border-radius:12px;display:flex;flex-direction:column;overflow:hidden;position:relative}
+.dots{position:absolute;left:18px;top:20px;display:flex;gap:8px}.dots i{width:12px;height:12px;border-radius:50%;background:#ff5f57}.dots i:nth-child(2){background:#febc2e}.dots i:nth-child(3){background:#28c840}
+.title{height:56px;display:flex;align-items:center;justify-content:center;position:relative;padding:0 28px}
+.title .n{text-align:center}.title b{display:block;font-size:13px}.title span{font-size:11px;color:var(--t2)}
+.exp{position:absolute;right:28px;display:flex;gap:8px}
+.chip{background:var(--ctl);padding:0 12px;height:30px;display:grid;place-items:center;border-radius:var(--r);font-weight:500}
+.pri{background:var(--acc);color:#fff;padding:0 14px;height:30px;display:grid;place-items:center;border-radius:var(--r);font-weight:500}
+.tools{height:44px;display:flex;gap:10px;padding:0 28px 8px;align-items:flex-start}
+.grp{background:var(--card);border-radius:var(--r);padding:2px;display:flex;height:34px}.grp u{width:32px;height:30px;display:grid;place-items:center;text-decoration:none;font-size:14px}
+.grp .off{opacity:.3}.grp .fx{width:auto;padding:0 10px;gap:6px;display:flex;align-items:center;font-weight:500}
+.sp{flex:1}.selinfo{font:12px ui-monospace,monospace;color:var(--t2);align-self:center}
+.main{flex:1;display:flex;gap:16px;padding:4px 28px 24px;min-height:0}
+.col{flex:1;display:flex;flex-direction:column;gap:12px;min-width:0}
+.ov{height:44px;background:var(--well);border-radius:var(--r);position:relative;overflow:hidden}
+.wf{flex:1;background:var(--well);border-radius:var(--r);position:relative;overflow:hidden}
+canvas{width:100%;height:100%;display:block}
+.bar{height:56px;background:var(--card);border-radius:var(--r);display:flex;align-items:center;justify-content:space-between;padding:0 24px;color:var(--t2)}
+.tr{display:flex;align-items:center;gap:12px;color:var(--text)}.tr .t{font:600 15px ui-monospace,monospace;width:96px}.tr .t:last-child{color:var(--t2)}
+.play{background:var(--acc);color:#fff;width:46px;height:30px;border-radius:var(--r);display:grid;place-items:center}
+.sl{width:90px;height:4px;background:var(--ctl);border-radius:2px;position:relative;display:inline-block;vertical-align:middle;margin:0 8px}.sl i{position:absolute;left:0;top:0;height:4px;width:60%;background:var(--acc);border-radius:2px}
+.insp{width:260px;display:none;flex-direction:column;gap:16px}body.insp .insp{display:flex}
+.card{background:var(--card);border-radius:var(--r);padding:20px 24px}.card h4{margin:0 0 10px;font-size:10.5px;letter-spacing:.5px;color:var(--t2);text-transform:uppercase}
+.kv{display:flex;justify-content:space-between;padding:3px 0;font-size:12px}.kv span{color:var(--t2)}.kv b{font-weight:600}
+</style></head><body>
+<div class="top"><button onclick="document.body.classList.toggle('sand')">Sombre / Sable</button><button onclick="document.body.classList.toggle('insp')">Inspecteur</button><button onclick="document.body.classList.toggle('hasel')">Sélection</button></div>
+<div class="win">
+ <div class="dots"><i></i><i></i><i></i></div>
+ <div class="title"><div class="n"><b>Joey est le meilleur bricoleur.wav</b><span>48 kHz · 16 bits · mono · 00:10</span></div>
+  <div class="exp"><div class="chip">M4A (AAC) · 256</div><div class="pri" id="expbtn">Exporter le fichier</div></div></div>
+ <div class="tools">
+  <div class="grp"><u class="off">↶</u><u class="off">↷</u></div>
+  <div class="grp"><u>✂︎</u><u>⧉</u><u class="off">⎘</u><u>🗑</u><u>⌗</u></div>
+  <div class="grp"><u class="fx">☰ Effets</u></div>
+  <div class="grp"><u>⚑</u><u>⊞</u><u>↔</u></div>
+  <div class="sp"></div><div class="selinfo" id="si"></div>
+  <div class="grp"><u>◧</u></div>
+ </div>
+ <div class="main"><div class="col">
+  <div class="ov"><canvas id="ov"></canvas></div>
+  <div class="wf"><canvas id="wf"></canvas></div>
+  <div class="bar"><span>🔍−<span class="sl"><i style="width:30%"></i></span>🔍+</span>
+   <div class="tr"><div class="t" style="text-align:right" id="tc">00:00.000</div><span>⏮</span><div class="play">▶</div><span>⏹</span><span>⏭</span><div class="t">−00:10.058</div></div>
+   <span>🔈<span class="sl"><i></i></span>🔊</span></div>
+ </div>
+ <div class="insp"><div class="card" style="flex:1"><h4>Repères</h4><div class="kv"><span>Repère 1</span><b>00:02</b></div><div class="kv"><span>Repère 2</span><b>00:06</b></div></div>
+  <div class="card"><h4>Fichier</h4><div class="kv"><span>Format</span><b>WAV</b></div><div class="kv"><span>Fréquence</span><b>48 kHz</b></div><div class="kv"><span>Canaux</span><b>1</b></div><div class="kv"><span>Profondeur</span><b>16 bits</b></div><div class="kv"><span>Taille</span><b>0,9 Mo</b></div></div></div>
+ </div>
+</div>
+<script>
+const css=n=>getComputedStyle(document.body).getPropertyValue(n).trim();
+function draw(id,pitch,w,sel){const c=document.getElementById(id),r=c.getBoundingClientRect(),d=2;c.width=r.width*d;c.height=r.height*d;const x=c.getContext('2d');x.scale(d,d);
+ const W=r.width,H=r.height,n=Math.floor(W/pitch);
+ if(document.body.classList.contains('hasel')&&sel){x.fillStyle=css('--sel');x.fillRect(W*.30,0,W*.28,H);}
+ x.fillStyle=css('--bar');for(let i=0;i<n;i++){const t=i/n;const a=Math.abs(Math.sin(t*38)*Math.sin(t*5+1))*.8*(.25+.75*Math.abs(Math.sin(t*3.1)))+.03;const h=Math.max(2,a*H*.9*(id=='wf'?1:1));
+  x.beginPath();x.roundRect(i*pitch,(H-h)/2,w,h,w/2);x.fill();}
+ if(id=='wf'){x.fillStyle=css('--text');x.globalAlpha=.8;x.fillRect(W*.30,0,1.5,H);x.globalAlpha=1;}}
+function all(){draw('wf',5,3,true);draw('ov',3,1.6,false);
+ const h=document.body.classList.contains('hasel');document.getElementById('si').textContent=h?'00:03.000 → 00:05.800  ·  00:03':'';
+ document.getElementById('expbtn').textContent=h?'Exporter la sélection':'Exporter le fichier';}
+new MutationObserver(()=>setTimeout(all,0)).observe(document.body,{attributes:true});addEventListener('resize',all);all();
+</script></body></html>
