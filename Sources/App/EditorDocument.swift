@@ -72,9 +72,13 @@ final class EditorDocument: ObservableObject {
     var isComputing: Bool { peaksProgress < 1 }
 
     /// Amplitude (0…1, max des canaux) de `count` colonnes de `perColumn` trames à partir de `start`.
-    func columns(count: Int, start: Int64, perColumn: Double) -> [Float] {
+    func columns(count: Int, start: Int64, perColumn: Double) -> [Float] { columnData(count: count, start: start, perColumn: perColumn).amps }
+
+    /// Comme `columns`, avec la couleur (tint) du segment de chaque colonne.
+    func columnData(count: Int, start: Int64, perColumn: Double) -> (amps: [Float], tints: [UInt8]) {
         var out = [Float](repeating: 0, count: max(count, 0))
-        guard count > 0, perColumn > 0 else { return out }
+        var tints = [UInt8](repeating: 0, count: max(count, 0))
+        guard count > 0, perColumn > 0 else { return (out, tints) }
         let clips = model.clips
         var starts: [Int64] = [], pos: Int64 = 0
         for c in clips { starts.append(pos); pos += c.length }
@@ -93,9 +97,9 @@ final class EditorDocument: ObservableObject {
                 let m = peaks[c.source]?.minMax(channel: l, from: a, to: b) ?? (0, 0)
                 amp = max(amp, abs(m.0), abs(m.1))
             }
-            out[i] = amp
+            out[i] = amp; tints[i] = UInt8(truncatingIfNeeded: c.tint)
         }
-        return out
+        return (out, tints)
     }
 
     // MARK: - Zoom / défilement
@@ -139,7 +143,10 @@ final class EditorDocument: ObservableObject {
         redraw.send()
     }
     func selectAll() { selection = 0..<total; redraw.send() }
+    /// Vrai dès que l'utilisateur a placé la tête de lecture : l'import s'y insère, sinon il se place à la fin.
+    var playheadMoved = false
     func seek(to f: Int64) {
+        playheadMoved = true
         let was = transport.isPlaying
         transport.playhead = max(0, min(f, total))
         if was { play() } else { redraw.send() }
@@ -207,35 +214,41 @@ final class EditorDocument: ObservableObject {
     private var workToken: CancelToken?
 
     /// Applique une chaîne de filtres à la sélection (ou à tout) : rendu en arrière-plan, puis remplacement annulable dans le montage.
-    func process(_ steps: [FilterStep], title: String) {
-        guard working == nil, total > 0 else { return }
+    private var workDone: (() -> Void)?
+    func process(_ steps: [FilterStep], title: String, whole: Bool = false, completion: (() -> Void)? = nil) {
+        guard working == nil, total > 0 else { completion?(); return }
+        workDone = completion
         if transport.isPlaying { pause() }
-        let range = selection ?? 0..<total
-        let hadSel = selection != nil
+        let range = (whole ? nil : selection) ?? 0..<total
+        let hadSel = !whole && selection != nil
         let clips = model.clips(in: range)
-        guard !clips.isEmpty else { return }
+        guard !clips.isEmpty else { workDone = nil; completion?(); return }
+        let tint = clips[0].tint
         let token = CancelToken(); workToken = token
         working = Working(title: title, progress: 0)
         Task.detached { [weak self] in
             do {
                 let r = try Filters.apply(steps, to: clips, token: token) { p in Task { @MainActor in self?.working?.progress = p } }
-                await MainActor.run { self?.finishWork(range: range, hadSel: hadSel, url: r.url, frames: r.frames) }
+                await MainActor.run { self?.finishWork(range: range, hadSel: hadSel, url: r.url, frames: r.frames, tint: tint) }
             } catch {
                 await MainActor.run { self?.failWork(error) }
             }
         }
     }
     func cancelWork() { workToken?.cancel() }
-    private func finishWork(range: Range<Int64>, hadSel: Bool, url: URL, frames: Int64) {
+    private func finishWork(range: Range<Int64>, hadSel: Bool, url: URL, frames: Int64, tint: Int) {
         working = nil
         startPeaks(for: url)
-        edited { model.replace(range, with: [Clip(source: url, start: 0, length: frames)]) }
+        var nc = Clip(source: url, start: 0, length: frames); nc.tint = tint
+        edited { model.replace(range, with: [nc]) }
         if hadSel { selection = range; redraw.send() }
+        let d = workDone; workDone = nil; d?()
     }
     private func failWork(_ e: Error) {
         working = nil
         if (e as? ConvertError) == .cancelled { return }
         message = (e as? FilterError) != nil ? Loc.t("filterSilent") : e.localizedDescription
+        let d = workDone; workDone = nil; d?()
     }
 
     private func edited(_ block: () -> Void) {
@@ -248,10 +261,55 @@ final class EditorDocument: ObservableObject {
         clampScroll(); redraw.send()
     }
 
-    func cut() { guard let s = selection else { return }; Self.clipboard = model.clips(in: s); let r = s; edited { model.delete(r); transport.playhead = r.lowerBound } }
-    func copySel() { guard let s = selection else { return }; Self.clipboard = model.clips(in: s) }
-    func paste() { guard !Self.clipboard.isEmpty else { return }; let at = transport.playhead; let c = Self.clipboard
-        edited { model.insert(c, at: at); transport.playhead = at + c.reduce(0) { $0 + $1.length } } }
+    /// Presse-papiers commun à toutes les timelines (et fenêtres) : copier/couper dans l'une, coller dans une autre.
+    static var clipboardNames: [Int: String] = [:]
+    static weak var clipboardOrigin: EditorDocument?
+
+    private func stash(_ s: Range<Int64>) {
+        Self.clipboard = model.clips(in: s)
+        Self.clipboardOrigin = self
+        Self.clipboardNames = sourceNames.merging([0: name]) { a, _ in a }
+    }
+    func cut() { guard let s = selection else { return }; stash(s); let r = s; edited { model.delete(r); transport.playhead = r.lowerBound } }
+    func copySel() { guard let s = selection else { return }; stash(s) }
+
+    func paste() {
+        guard working == nil, !Self.clipboard.isEmpty else { return }
+        if transport.isPlaying { pause() }
+        let at = transport.playhead
+        var clips = Self.clipboard
+        // Couleurs : un bloc venu d'une autre timeline reçoit ses propres couleurs (la couleur 0 est celle du fichier de chaque timeline).
+        if Self.clipboardOrigin !== self {
+            var map: [Int: Int] = [:], next = (model.clips.map { $0.tint }.max() ?? 0)
+            for i in clips.indices {
+                let t = clips[i].tint
+                if map[t] == nil { next = next % 4 + 1; map[t] = next; sourceNames[next] = Self.clipboardNames[t] ?? Self.clipboardOrigin?.name ?? "—" }
+                clips[i].tint = map[t]!
+            }
+        }
+        // Fréquence ou canaux différents : le bloc est d'abord rendu au format de cette timeline.
+        let rate = info.sampleRate, ch = Int(info.channels)
+        let mismatch = clips.contains { c in
+            guard let i = try? Converter.info(of: c.source) else { return false }
+            return i.sampleRate != rate || Int(i.channels) != ch
+        }
+        if !mismatch { finishPaste(clips, at: at); return }
+        let token = CancelToken(); workToken = token
+        working = Working(title: Loc.t("importing"), progress: 0)
+        let tint = clips[0].tint, toRender = clips
+        Task.detached { [weak self] in
+            do {
+                let r = try Filters.render(toRender, rate: rate, channels: ch, token: token) { p in Task { @MainActor in self?.working?.progress = p } }
+                var c = Clip(source: r.url, start: 0, length: r.frames); c.tint = tint
+                await MainActor.run { self?.working = nil; self?.finishPaste([c], at: at) }
+            } catch { await MainActor.run { self?.failWork(error) } }
+        }
+    }
+    private func finishPaste(_ clips: [Clip], at: Int64) {
+        for c in clips where peaks[c.source] == nil { startPeaks(for: c.source) }
+        edited { model.insert(clips, at: at); transport.playhead = at + clips.reduce(0) { $0 + $1.length } }
+        playheadMoved = true
+    }
     func deleteSel() { guard let s = selection else { return }; edited { model.delete(s); transport.playhead = s.lowerBound } }
     func keepSel() { guard let s = selection else { return }; edited { model.keepOnly(s); transport.playhead = 0 } }
     func gain(db: Float) { guard let s = selection ?? (total > 0 ? 0..<total : nil) else { return }
@@ -292,18 +350,59 @@ final class EditorDocument: ObservableObject {
         edited { model.addMarkers(named.filter { $0.frame < total }) }
     }
 
-    func appendFile(_ u: URL) {
-        guard let i = try? Converter.info(of: u), i.channels == info.channels, i.sampleRate == info.sampleRate, i.frames > 0 else {
-            message = Loc.t("mergeMismatch"); return
+    /// Noms des échantillons par couleur (légende de l'inspecteur).
+    @Published var sourceNames: [Int: String] = [:]
+    var tintsInUse: [Int] { Array(Set(model.clips.map { $0.tint })).sorted() }
+
+    /// Importe des échantillons à la tête de lecture (si elle a été placée) ou à la suite du montage. Fréquence et canaux sont
+    /// adaptés au besoin. Chaque fichier garde sa couleur ; l'ensemble est sélectionné après l'import.
+    func importFiles(_ urls: [URL]) {
+        guard working == nil, !urls.isEmpty else { return }
+        if transport.isPlaying { pause() }
+        let at = playheadMoved ? min(transport.playhead, total) : total
+        let rate = info.sampleRate, ch = Int(info.channels)
+        let token = CancelToken(); workToken = token
+        working = Working(title: Loc.t("importing"), progress: 0)
+        Task.detached { [weak self] in
+            var prepared: [(URL, URL, Int64)] = []        // original, fichier utilisé, trames
+            do {
+                for (k, u) in urls.enumerated() {
+                    let r = try Filters.conform(u, rate: rate, channels: ch, token: token) { p in
+                        Task { @MainActor in self?.working?.progress = (Double(k) + p) / Double(urls.count) }
+                    }
+                    guard r.frames > 0 else { continue }
+                    prepared.append((u, r.url, r.frames))
+                }
+                await MainActor.run { self?.finishImport(prepared, at: at) }
+            } catch {
+                await MainActor.run { self?.failWork(error) }
+            }
         }
-        startPeaks(for: u)
-        edited { model.append(Clip(source: u, start: 0, length: i.frames)) }
+    }
+    private func finishImport(_ list: [(URL, URL, Int64)], at: Int64) {
+        working = nil
+        guard !list.isEmpty else { return }
+        var tint = (model.clips.map { $0.tint }.max() ?? 0)
+        var clips: [Clip] = []
+        for (orig, used, frames) in list {
+            tint = tint % 4 + 1
+            var c = Clip(source: used, start: 0, length: frames); c.tint = tint
+            sourceNames[tint] = orig.deletingPathExtension().lastPathComponent
+            startPeaks(for: used)
+            clips.append(c)
+        }
+        let len = clips.reduce(0) { $0 + $1.length }
+        edited { model.insert(clips, at: at) }
+        transport.playhead = at; playheadMoved = true
+        selection = at..<(at + len)
+        scrollTo(centerFrame: at + len / 2)
+        redraw.send()
     }
 
     // MARK: - Export
 
-    func export() {
-        let sel = selection
+    func export(whole: Bool = false) {
+        let sel = whole ? nil : selection
         let clips = sel.map { model.clips(in: $0) } ?? model.clips
         guard !clips.isEmpty else { return }
         let suffix = sel != nil ? Loc.t("selSuffix") : (model.clips.count == 1 && model.clips[0].start == 0 && model.clips[0].length == info.frames ? nil : Loc.t("edited"))

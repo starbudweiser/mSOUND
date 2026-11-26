@@ -72,6 +72,61 @@ public enum Filters {
         return (out, job.frames)
     }
 
+    /// Rend une suite de segments (gains et fondus compris) au format voulu dans un seul fichier WAV Float32 du cache.
+    public static func render(_ clips: [Clip], rate: Double, channels: Int, token: CancelToken? = nil,
+                              progress: ((Double) -> Void)? = nil) throws -> (url: URL, frames: Int64) {
+        var infos: [URL: Converter.SourceInfo] = [:]
+        for c in clips where infos[c.source] == nil { infos[c.source] = try Converter.info(of: c.source) }
+        let reader = ClipReader(clips: clips, infos: infos, outRate: rate, channels: UInt32(channels))
+        let total = reader.totalOutFrames
+        try FileManager.default.createDirectory(at: cacheDir, withIntermediateDirectories: true)
+        let out = cacheDir.appendingPathComponent("\(UUID().uuidString).wav")
+        let writer = try FloatWriter(url: out, rate: rate, channels: channels)
+        let raw = UnsafeMutableRawPointer.allocate(byteCount: 32768 * channels * 4, alignment: 16)
+        defer { raw.deallocate() }
+        var done: Int64 = 0
+        do {
+            while true {
+                if Task.isCancelled || token?.isCancelled == true { throw ConvertError.cancelled }
+                let n = try reader.read(into: raw, maxFrames: 32768)
+                if n == 0 { break }
+                try writer.write(Array(UnsafeBufferPointer(start: raw.assumingMemoryBound(to: Float.self), count: Int(n) * channels)))
+                done += Int64(n); progress?(Double(done) / Double(max(total, 1)))
+            }
+        } catch { writer.close(); try? FileManager.default.removeItem(at: out); throw error }
+        writer.close()
+        return (out, done)
+    }
+
+    /// Met un fichier à la fréquence et au nombre de canaux voulus (rendu WAV Float32 dans le cache) ; le fichier d'origine est
+    /// renvoyé tel quel s'il convient déjà.
+    public static func conform(_ url: URL, rate: Double, channels: Int, token: CancelToken? = nil,
+                               progress: ((Double) -> Void)? = nil) throws -> (url: URL, frames: Int64) {
+        let info = try Converter.info(of: url)
+        if info.sampleRate == rate && Int(info.channels) == channels { return (url, info.frames) }
+        let clip = Clip(source: url, start: 0, length: info.frames)
+        let reader = ClipReader(clips: [clip], infos: [url: info], outRate: rate, channels: UInt32(channels))
+        let total = reader.totalOutFrames
+        try FileManager.default.createDirectory(at: cacheDir, withIntermediateDirectories: true)
+        let out = cacheDir.appendingPathComponent("\(UUID().uuidString).wav")
+        let writer = try FloatWriter(url: out, rate: rate, channels: channels)
+        let chunk: UInt32 = 32768
+        let raw = UnsafeMutableRawPointer.allocate(byteCount: Int(chunk) * channels * 4, alignment: 16)
+        defer { raw.deallocate() }
+        var done: Int64 = 0
+        do {
+            while true {
+                if Task.isCancelled || token?.isCancelled == true { throw ConvertError.cancelled }
+                let n = try reader.read(into: raw, maxFrames: chunk)
+                if n == 0 { break }
+                try writer.write(Array(UnsafeBufferPointer(start: raw.assumingMemoryBound(to: Float.self), count: Int(n) * channels)))
+                done += Int64(n); progress?(Double(done) / Double(max(total, 1)))
+            }
+        } catch { writer.close(); try? FileManager.default.removeItem(at: out); throw error }
+        writer.close()
+        return (out, done)
+    }
+
     /// Sonie intégrée (LUFS) d'un fichier ou d'un montage.
     public static func loudness(of clips: [Clip]) throws -> Double {
         let job = try Job(clips: clips, token: nil, progress: nil, total: 1)

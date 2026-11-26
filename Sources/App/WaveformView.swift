@@ -46,15 +46,17 @@ final class WaveformView: NSView {
         // Onde en bâtons arrondis (largeur 3, espace 2)
         let barW: CGFloat = 3, pitch: CGFloat = 5
         let n = Int((bounds.width / pitch).rounded(.up)) + 1
-        let amps = doc.columns(count: n, start: doc.scroll, perColumn: doc.fpp * Double(pitch))
+        let (amps, tints) = doc.columnData(count: n, start: doc.scroll, perColumn: doc.fpp * Double(pitch))
         let maxH = area * 0.94
-        ctx.setFillColor(wave.cgColor)
-        for (i, a) in amps.enumerated() {
-            let h = max(2, CGFloat(min(1, a)) * maxH)
-            let r = CGRect(x: CGFloat(i) * pitch, y: mid - h / 2, width: barW, height: h)
-            ctx.addPath(CGPath(roundedRect: r, cornerWidth: barW / 2, cornerHeight: min(barW / 2, h / 2), transform: nil))
+        for t in Set(tints) {
+            ctx.setFillColor((t == 0 ? wave : WavePalette.color(Int(t), dark: dark)).cgColor)
+            for (i, a) in amps.enumerated() where tints[i] == t {
+                let h = max(2, CGFloat(min(1, a)) * maxH)
+                let r = CGRect(x: CGFloat(i) * pitch, y: mid - h / 2, width: barW, height: h)
+                ctx.addPath(CGPath(roundedRect: r, cornerWidth: barW / 2, cornerHeight: min(barW / 2, h / 2), transform: nil))
+            }
+            ctx.fillPath()
         }
-        ctx.fillPath()
         // Sélection
         if let s = doc.selection {
             let x0 = max(0, doc.x(forFrame: s.lowerBound)), x1 = min(bounds.width, doc.x(forFrame: s.upperBound))
@@ -172,7 +174,7 @@ final class WaveformView: NSView {
             doc.selection = nil
             doc.seek(to: a)
         } else if let s = doc.selection, !doc.transport.isPlaying {
-            doc.transport.playhead = s.lowerBound; doc.redraw.send()
+            doc.transport.playhead = s.lowerBound; doc.playheadMoved = true; doc.redraw.send()
         }
     }
 

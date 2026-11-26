@@ -169,4 +169,43 @@ final class FilterTests: XCTestCase {
         m.undo()
         XCTAssertEqual(m.clips.count, 1)
     }
+
+    func testConformMonoToStereoAndRate() throws {
+        // mono 48 kHz, 2 s, sinus 440 Hz à 0,3
+        let url = dir.appendingPathComponent("mono48.wav")
+        let w = try FloatWriter(url: url, rate: 48000, channels: 1)
+        try w.write((0..<96000).map { Float(0.3 * sin(2 * .pi * 440 * Double($0) / 48000)) }); w.close()
+        let r = try Filters.conform(url, rate: 44100, channels: 2)
+        XCTAssertNotEqual(r.url, url)
+        XCTAssertEqual(Double(r.frames), 88200, accuracy: 64)
+        let x = try readAll(r.url)
+        XCTAssertEqual(toneDB(x, f: 440, from: 0.2, to: 1.8), 20 * log10(0.3), accuracy: 1.0)
+        // déjà conforme : même fichier
+        let same = try Filters.conform(r.url, rate: 44100, channels: 2)
+        XCTAssertEqual(same.url, r.url)
+    }
+
+    func testTintSurvivesSplitAndInsert() {
+        let a = URL(fileURLWithPath: "/a.wav"), b = URL(fileURLWithPath: "/b.wav")
+        let m = EditModel(source: a, frames: 1000, sampleRate: 44100)
+        var c = Clip(source: b, start: 0, length: 200); c.tint = 2
+        m.insert([c], at: 500)
+        m.delete(100..<150)
+        XCTAssertEqual(m.clips.map { $0.tint }, [0, 0, 2, 0])
+        XCTAssertEqual(m.totalFrames, 1150)
+        m.addMarker(at: 600, name: "x")
+        XCTAssertEqual(m.clips(in: 400..<720).map { $0.tint }, [0, 2, 0])
+    }
+
+    func testRenderClipsToOtherFormat() throws {
+        let url = dir.appendingPathComponent("mono48b.wav")
+        let w = try FloatWriter(url: url, rate: 48000, channels: 1)
+        try w.write((0..<96000).map { Float(0.3 * sin(2 * .pi * 440 * Double($0) / 48000)) }); w.close()
+        var c = Clip(source: url, start: 24000, length: 48000)     // 1 s au milieu
+        c.g0 = 0.5; c.g1 = 0.5                                       // −6 dB
+        let r = try Filters.render([c], rate: 44100, channels: 2)
+        XCTAssertEqual(Double(r.frames), 44100, accuracy: 64)
+        let x = try readAll(r.url)
+        XCTAssertEqual(toneDB(x, f: 440, from: 0.1, to: 0.9), 20 * log10(0.15), accuracy: 1.0)
+    }
 }

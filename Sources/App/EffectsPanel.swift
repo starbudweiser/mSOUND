@@ -5,13 +5,18 @@ import MSoundShared
 /// La carte : quatre recettes toutes prêtes, cinq filtres à préréglages, quelques réglages de niveau.
 struct EffectsPanel: View {
     let doc: EditorDocument
+    @ObservedObject var session: EditorSession
     var close: () -> Void
+    @State private var allTimelines = false
     @State private var strength: Strength = .medium
     @State private var eq: EQPreset = .voice
     @State private var comp: CompPreset = .studio
     @State private var target: Double = -16
 
-    private func run(_ steps: [FilterStep], _ title: String) { close(); doc.process(steps, title: title) }
+    private func run(_ steps: [FilterStep], _ title: String) {
+        close()
+        if allTimelines && session.docs.count > 1 { session.processAll(steps, title: title) } else { doc.process(steps, title: title) }
+    }
 
     private func row<Chips: View>(_ title: String, _ desc: String, apply: @escaping () -> Void, @ViewBuilder chips: () -> Chips) -> some View {
         VStack(alignment: .leading, spacing: 5) {
@@ -38,7 +43,15 @@ struct EffectsPanel: View {
     var body: some View {
         let hasSel = doc.selection != nil
         VStack(alignment: .leading, spacing: 8) {
-            Text(hasSel ? Loc.t("fxScopeSel") : Loc.t("fxScopeAll")).font(.system(size: 12, weight: .medium)).foregroundColor(Theme.text2)
+            if session.docs.count > 1 {
+                HStack(spacing: 4) {
+                    chip(Loc.t("scopeThis"), false, $allTimelines)
+                    chip(Loc.t("scopeAll", session.docs.count), true, $allTimelines)
+                    Spacer()
+                }
+            }
+            Text(allTimelines && session.docs.count > 1 ? Loc.t("fxScopeAll") : (hasSel ? Loc.t("fxScopeSel") : Loc.t("fxScopeAll")))
+                .font(.system(size: 12, weight: .medium)).foregroundColor(Theme.text2)
             header(Loc.t("fxRecipes"))
             ForEach(Recipe.allCases, id: \.self) { r in
                 let (t, d) = recipeText(r)
@@ -58,14 +71,14 @@ struct EffectsPanel: View {
             row(Loc.t("fLoud"), Loc.t("fLoudD"), apply: { run([.loudness(target)], Loc.t("fLoud")) }) {
                 chip(Loc.t("lTV"), -23.0, $target); chip(Loc.t("lPod"), -16.0, $target); chip(Loc.t("lStream"), -14.0, $target)
             }
-            header(Loc.t("fxLevels"))
+            if !(allTimelines && session.docs.count > 1) { header(Loc.t("fxLevels"))
             HStack(spacing: 6) {
                 Button(Loc.t("normalize")) { close(); doc.normalize() }.buttonStyle(FlatButton())
                 Button(Loc.t("fadeInShort")) { close(); doc.fadeIn() }.buttonStyle(FlatButton()).disabled(!hasSel)
                 Button(Loc.t("fadeOutShort")) { close(); doc.fadeOut() }.buttonStyle(FlatButton()).disabled(!hasSel)
                 Button("+3 dB") { close(); doc.gain(db: 3) }.buttonStyle(FlatButton())
                 Button("−3 dB") { close(); doc.gain(db: -3) }.buttonStyle(FlatButton())
-            }
+            } }
         }
         .padding(20).frame(width: 520).background(Theme.bg)
     }

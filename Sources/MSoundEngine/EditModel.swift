@@ -8,6 +8,8 @@ public struct Clip: Equatable, Sendable {
     /// Gain linéaire au début et à la fin du segment (rampe linéaire entre les deux : fondus, normalisation).
     public var g0: Float = 1
     public var g1: Float = 1
+    /// Couleur d'affichage de la forme d'onde (0 = fichier d'origine, 1… = échantillons importés).
+    public var tint: Int = 0
     public init(source: URL, start: Int64, length: Int64) { self.source = source; self.start = start; self.length = length }
     public var hasFX: Bool { g0 != 1 || g1 != 1 }
     public var end: Int64 { start + length }

@@ -27,14 +27,16 @@ final class OverviewView: NSView {
         let total = max(doc.total, 1)
         let pitch: CGFloat = 3, barW: CGFloat = 2
         let n = Int(bounds.width / pitch) + 1
-        let amps = doc.columns(count: n, start: 0, perColumn: Double(total) / Double(bounds.width) * Double(pitch))
+        let (amps, tints) = doc.columnData(count: n, start: 0, perColumn: Double(total) / Double(bounds.width) * Double(pitch))
         let mid = bounds.height / 2, maxH = bounds.height - 12
-        ctx.setFillColor(wave.withAlphaComponent(0.85).cgColor)
-        for (i, a) in amps.enumerated() {
-            let h = max(2, CGFloat(min(1, a)) * maxH)
-            ctx.addPath(CGPath(roundedRect: CGRect(x: CGFloat(i) * pitch, y: mid - h / 2, width: barW, height: h), cornerWidth: 1, cornerHeight: 1, transform: nil))
+        for t in Set(tints) {
+            ctx.setFillColor((t == 0 ? wave : WavePalette.color(Int(t), dark: dark)).withAlphaComponent(0.85).cgColor)
+            for (i, a) in amps.enumerated() where tints[i] == t {
+                let h = max(2, CGFloat(min(1, a)) * maxH)
+                ctx.addPath(CGPath(roundedRect: CGRect(x: CGFloat(i) * pitch, y: mid - h / 2, width: barW, height: h), cornerWidth: 1, cornerHeight: 1, transform: nil))
+            }
+            ctx.fillPath()
         }
-        ctx.fillPath()
         func x(_ f: Int64) -> CGFloat { CGFloat(Double(f) / Double(total)) * bounds.width }
         if let s = doc.selection {
             accent.withAlphaComponent(0.3).setFill()

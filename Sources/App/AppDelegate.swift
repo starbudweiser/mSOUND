@@ -4,31 +4,30 @@ import MSoundEngine
 import MSoundShared
 
 @MainActor final class EditorWindowController: NSObject, NSWindowDelegate {
-    let doc: EditorDocument
+    let session: EditorSession
     let window: NSWindow
     var onClose: ((EditorWindowController) -> Void)?
 
-    init(doc: EditorDocument) {
-        self.doc = doc
+    init(session: EditorSession) {
+        self.session = session
         window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1180, height: 680),
                           styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
                           backing: .buffered, defer: false)
         super.init()
-        window.title = doc.url.lastPathComponent
+        window.title = session.active.url.lastPathComponent
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
         window.isReleasedWhenClosed = false
         // La taille de la fenêtre est celle de l'utilisateur, jamais dictée par le contenu SwiftUI (sinon elle peut s'écraser).
-        let host = NSHostingView(rootView: EditorView(doc: doc, onOpenFiles: { urls in
-            MainActor.assumeIsolated { urls.forEach { (NSApp.delegate as? AppDelegate)?.openEditor($0) } }
-        }))
+        let host = NSHostingView(rootView: EditorRoot(session: session))
         host.sizingOptions = []
         window.contentView = host
         window.contentMinSize = NSSize(width: 1000, height: 560)
         window.delegate = self
         window.center()
+        session.onEmpty = { [weak self] in self?.window.close() }
     }
-    func windowWillClose(_ notification: Notification) { doc.stop(); onClose?(self) }
+    func windowWillClose(_ notification: Notification) { session.closeAll(); onClose?(self) }
 }
 
 @MainActor final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
@@ -72,8 +71,14 @@ import MSoundShared
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
 
     func application(_ app: NSApplication, open urls: [URL]) {
+        let fileURLs = urls.filter { $0.isFileURL }
+        if !fileURLs.isEmpty { openEditors(fileURLs) }
         for url in urls {
-            if url.isFileURL { openEditor(url); continue }
+            if url.isFileURL { continue }
+            if url.host == "import", let d = current {
+                d.importFiles((URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []).filter { $0.name == "file" }.compactMap { $0.value }.map { URL(fileURLWithPath: $0) })
+                continue
+            }
             if url.host == "home" { homeWin.show(); continue }
             if url.host == "settings" { settingsWin.show(); continue }
             if url.host == "about" { aboutWin.show(); continue }
@@ -82,7 +87,7 @@ import MSoundShared
             let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
             let files = items.filter { $0.name == "file" }.compactMap { $0.value }.map { URL(fileURLWithPath: $0) }
             guard !files.isEmpty else { continue }
-            if url.host == "edit" { files.forEach(openEditor); continue }
+            if url.host == "edit" { openEditors(files); continue }
             guard url.host == "convert", let fmt = items.first(where: { $0.name == "format" })?.value,
                   let format = AudioFormat(rawValue: fmt) else { continue }
             // Fenêtre de progression : lots (plusieurs fichiers) ; un fichier seul depuis le Finder = jauge sur son icône.
@@ -91,28 +96,35 @@ import MSoundShared
     }
 
     // MARK: Éditeurs
-    func openEditor(_ url: URL) {
-        if let e = editors.first(where: { $0.doc.url == url }) { e.window.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true); return }
-        do {
-            let doc = try EditorDocument(url: url)
-            let c = EditorWindowController(doc: doc)
-            c.onClose = { [weak self] c in
-                self?.editors.removeAll { $0 === c }
-                self?.updatePolicy()
-            }
-            NSDocumentController.shared.noteNewRecentDocumentURL(url)
-            homeWin.close()
-            editors.append(c)
-            updatePolicy()
-            c.window.makeKeyAndOrderFront(nil)
-            NSApp.activate(ignoringOtherApps: true)
-        } catch {
-            let a = NSAlert(); a.messageText = Loc.t("openFailed"); a.informativeText = url.lastPathComponent; a.runModal()
+    func openEditor(_ url: URL) { openEditors([url]) }
+
+    /// Plusieurs fichiers d'un coup = une fenêtre, une timeline indépendante par fichier. Un fichier déjà ouvert est simplement ramené devant.
+    func openEditors(_ urls: [URL]) {
+        var fresh: [URL] = []
+        for u in urls {
+            if let e = editors.first(where: { $0.session.doc(for: u) != nil }) {
+                e.session.select(e.session.doc(for: u)!); e.window.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true)
+            } else if !fresh.contains(u) { fresh.append(u) }
         }
+        var docs: [EditorDocument] = []
+        for u in fresh {
+            if let d = try? EditorDocument(url: u) { docs.append(d); NSDocumentController.shared.noteNewRecentDocumentURL(u) }
+            else { let a = NSAlert(); a.messageText = Loc.t("openFailed"); a.informativeText = u.lastPathComponent; a.runModal() }
+        }
+        guard let first = docs.first else { return }
+        let session = EditorSession(first: first)
+        let c = EditorWindowController(session: session)
+        c.onClose = { [weak self] c in self?.editors.removeAll { $0 === c }; self?.updatePolicy() }
+        homeWin.close()
+        editors.append(c)
+        updatePolicy()
+        c.window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+        if docs.count > 1 { session.open(docs.dropFirst().map { $0.url }); session.select(first) }
     }
 
     var current: EditorDocument? {
-        editors.first { $0.window === NSApp.keyWindow }?.doc ?? editors.last?.doc
+        (editors.first { $0.window === NSApp.keyWindow } ?? editors.last)?.session.active
     }
 
     func validateMenuItem(_ item: NSMenuItem) -> Bool {
@@ -130,7 +142,7 @@ import MSoundShared
     // MARK: Actions de menu
     @objc func openAction() {
         let p = NSOpenPanel(); p.allowedContentTypes = [.audio]; p.allowsMultipleSelection = true
-        if p.runModal() == .OK { p.urls.forEach(openEditor) }
+        if p.runModal() == .OK { openEditors(p.urls) }
     }
     @objc func closeAction() { NSApp.keyWindow?.performClose(nil) }
     @objc func exportAction() { current?.export() }
@@ -146,6 +158,11 @@ import MSoundShared
     @objc func fadeOutAction() { current?.fadeOut() }
     @objc func gainUpAction() { current?.gain(db: 3) }
     @objc func gainDownAction() { current?.gain(db: -3) }
+    @objc func importAction() {
+        guard let d = current else { return }
+        let p = NSOpenPanel(); p.allowedContentTypes = [.audio]; p.allowsMultipleSelection = true
+        if p.runModal() == .OK { d.importFiles(p.urls) }
+    }
     @objc func selectAllAction() { current?.selectAll() }
     @objc func markerAction() { current?.addMarker() }
     @objc func playAction() { current?.togglePlay() }
@@ -172,7 +189,7 @@ import MSoundShared
         }
         let sep = NSMenuItem.separator()
         add("mSOUND", [item(Loc.t("about"), #selector(AppDelegate.aboutAction)), .separator(), item(Loc.t("settings"), #selector(AppDelegate.settingsAction), ","), .separator(), item(Loc.t("quit"), #selector(AppDelegate.quitAction), "q")])
-        add(Loc.t("menuFile"), [item(Loc.t("open"), #selector(AppDelegate.openAction), "o"), item(Loc.t("close"), #selector(AppDelegate.closeAction), "w"),
+        add(Loc.t("menuFile"), [item(Loc.t("open"), #selector(AppDelegate.openAction), "o"), item(Loc.t("merge"), #selector(AppDelegate.importAction), "i"), item(Loc.t("close"), #selector(AppDelegate.closeAction), "w"),
                                 .separator(), item(Loc.t("export"), #selector(AppDelegate.exportAction), "e")])
         add(Loc.t("menuEdit"), [item(Loc.t("undo"), #selector(AppDelegate.undoAction), "z"), item(Loc.t("redo"), #selector(AppDelegate.redoAction), "z", [.command, .shift]),
                                 .separator(), item(Loc.t("cut"), #selector(AppDelegate.cutAction), "x"), item(Loc.t("copy"), #selector(AppDelegate.copyAction), "c"),

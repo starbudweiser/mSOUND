@@ -124,7 +124,7 @@ struct KV: View {
 
 struct EditorView: View {
     @ObservedObject var doc: EditorDocument
-    var onOpenFiles: ([URL]) -> Void = { _ in }
+    @ObservedObject var session: EditorSession
     @State private var dropping = false
     @State private var fxOpen = false
     @AppStorage("inspectorVisible") private var inspectorVisible = false
@@ -138,6 +138,7 @@ struct EditorView: View {
         let _ = doc.revision
         VStack(spacing: 0) {
             titleBar
+            if session.docs.count > 1 { TimelineTabs(session: session) }
             toolRow
             HStack(alignment: .top, spacing: 16) {
                 VStack(spacing: 12) {
@@ -162,7 +163,7 @@ struct EditorView: View {
                 p.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { item, _ in
                     guard let d = item as? Data, let u = URL(dataRepresentation: d, relativeTo: nil),
                           Prefs.audioExtensions.contains(u.pathExtension.lowercased()) else { return }
-                    DispatchQueue.main.async { onOpenFiles([u]) }
+                    DispatchQueue.main.async { session.open([u]) }
                 }
             }
             return true
@@ -228,11 +229,17 @@ struct EditorView: View {
                         Text(Loc.t("menuEffects")).font(.system(size: 12.5, weight: .medium))
                     }.foregroundColor(Theme.text).padding(.horizontal, 10).frame(height: 30).contentShape(Rectangle())
                 }.buttonStyle(.plain).disabled(doc.working != nil)
-                    .popover(isPresented: $fxOpen, arrowEdge: .bottom) { EffectsPanel(doc: doc) { fxOpen = false } }
+                    .popover(isPresented: $fxOpen, arrowEdge: .bottom) { EffectsPanel(doc: doc, session: session) { fxOpen = false } }
             }
             ToolGroup {
                 ToolIcon(symbol: "flag", title: Loc.t("marker"), enabled: true) { doc.addMarker() }
-                ToolIcon(symbol: "plus.rectangle.on.rectangle", title: Loc.t("mergeShort"), enabled: true) { pickAndAppend() }
+                Menu {
+                    Button(Loc.t("insertHere")) { pickAndImport() }
+                    Button(Loc.t("newTimelines")) { pickAndOpen() }
+                } label: {
+                    Image(systemName: "plus.rectangle.on.rectangle").font(.system(size: 14, weight: .medium)).frame(width: 32, height: 30)
+                        .foregroundColor(Theme.text).contentShape(Rectangle())
+                }.menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize().help(Loc.t("mergeShort"))
                 ToolIcon(symbol: "arrow.left.and.right", title: Loc.t("fit"), enabled: true) { doc.fit() }
             }
             Spacer(minLength: 12)
@@ -278,6 +285,18 @@ struct EditorView: View {
                 Button(Loc.t("detectSilences")) { doc.markSilences() }.buttonStyle(FlatButton())
                     .frame(maxWidth: .infinity, alignment: .center).padding(.top, 6)
             }.frame(maxHeight: .infinity)
+            if doc.tintsInUse.count > 1 {
+                Card(title: Loc.t("samples")) {
+                    ForEach(doc.tintsInUse, id: \.self) { t in
+                        HStack(spacing: 8) {
+                            Circle().fill(Color(nsColor: WavePalette.color(t, dark: true))).frame(width: 9, height: 9)
+                            Text(t == 0 ? doc.name : (doc.sourceNames[t] ?? "—")).font(.system(size: 12)).foregroundColor(Theme.text)
+                                .lineLimit(1).truncationMode(.middle)
+                            Spacer()
+                        }
+                    }
+                }
+            }
             Card(title: Loc.t("file")) {
                 KV(k: "Format", v: doc.url.pathExtension.uppercased())
                 KV(k: Loc.t("sampleRate"), v: "\(String(format: "%g", doc.info.sampleRate / 1000)) kHz")
@@ -294,9 +313,13 @@ struct EditorView: View {
         let b = (try? FileManager.default.attributesOfItem(atPath: doc.url.path)[.size] as? Int) ?? 0
         return String(format: "%.1f Mo", Double(b) / 1_048_576)
     }
-    private func pickAndAppend() {
-        let p = NSOpenPanel(); p.allowedContentTypes = [.audio]; p.allowsMultipleSelection = false
-        if p.runModal() == .OK, let u = p.url { doc.appendFile(u) }
+    private func pickAndOpen() {
+        let p = NSOpenPanel(); p.allowedContentTypes = [.audio]; p.allowsMultipleSelection = true
+        if p.runModal() == .OK { session.open(p.urls) }
+    }
+    private func pickAndImport() {
+        let p = NSOpenPanel(); p.allowedContentTypes = [.audio]; p.allowsMultipleSelection = true
+        if p.runModal() == .OK { doc.importFiles(p.urls) }
     }
 }
 
