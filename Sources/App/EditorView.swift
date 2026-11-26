@@ -26,12 +26,13 @@ struct IconButton: View {
 
 struct Card<Content: View>: View {
     let title: String
+    var fill = false
     @ViewBuilder var content: Content
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 8) {
             Text(title.uppercased()).font(.system(size: 10.5, weight: .semibold)).tracking(0.5).foregroundColor(Theme.text2)
-            VStack(spacing: 4) { content }
-                .padding(10).frame(maxWidth: .infinity)
+            VStack(spacing: 6) { content }.frame(maxHeight: fill ? .infinity : nil, alignment: .top)
+                .padding(.horizontal, 24).padding(.vertical, 20).frame(maxWidth: .infinity)
                 .background(Theme.card).clipShape(RoundedRectangle(cornerRadius: Theme.radius))
         }
     }
@@ -67,7 +68,7 @@ struct TransportBar: View {
             }.buttonStyle(FlatButton(primary: true)).help(Loc.t("playPause"))
             IconButton(symbol: "stop.fill", help: "Stop", enabled: true) { doc.stop() }
             IconButton(symbol: "forward.end.fill", help: Loc.t("toEnd"), enabled: true) { doc.seek(to: doc.total) }
-            TimeView(transport: transport, rate: doc.rate).padding(.horizontal, 4)
+            TimeView(transport: transport, rate: doc.rate).padding(.leading, 6)
         }
     }
 }
@@ -89,19 +90,20 @@ struct EditorView: View {
                 Text("\(doc.url.lastPathComponent) · \(infoLine)").font(.system(size: 12)).foregroundColor(Theme.text2).lineLimit(1)
                 Spacer()
                 TransportBar(transport: doc.transport, doc: doc)
-            }.padding(.leading, 84).padding(.trailing, 16).frame(height: 52)
+            }.padding(.leading, 84).padding(.trailing, 28).frame(height: 56)
 
-            HStack(spacing: 0) {
-                sidebar.frame(width: 220)
-                VStack(spacing: 10) {
+            HStack(alignment: .top, spacing: 24) {
+                sidebar.frame(width: 240)
+                VStack(spacing: 12) {
                     toolbar
                     WaveformRepresentable(doc: doc).frame(minHeight: 200)
                     statusLine
-                }.padding(12)
-                inspector.frame(width: 240)
-            }
+                }.frame(maxWidth: .infinity, maxHeight: .infinity)
+                inspector.frame(width: 260)
+            }.padding(.horizontal, 28).padding(.vertical, 8).frame(maxHeight: .infinity)
             exportBar
         }
+        .frame(minWidth: 1200, minHeight: 620)
         .background(Theme.bg)
         .alert(doc.message ?? "", isPresented: Binding(get: { doc.message != nil }, set: { if !$0 { doc.message = nil } })) { Button("OK") {} }
     }
@@ -138,11 +140,13 @@ struct EditorView: View {
     }
 
     private var sidebar: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Card(title: Loc.t("markers")) {
-                if doc.model.markers.isEmpty {
-                    Text("—").foregroundColor(Theme.text2).frame(maxWidth: .infinity, alignment: .leading)
-                }
+        Card(title: Loc.t("markers"), fill: true) {
+            if doc.model.markers.isEmpty {
+                Spacer()
+                Text(Loc.t("noMarkers")).font(.system(size: 12)).multilineTextAlignment(.center).foregroundColor(Theme.text2)
+                    .frame(maxWidth: .infinity)
+                Spacer()
+            } else {
                 ScrollView {
                     VStack(spacing: 2) {
                         ForEach(doc.model.markers) { m in
@@ -151,37 +155,45 @@ struct EditorView: View {
                                 Spacer()
                                 Text(timeString(m.frame, rate: doc.rate, ms: false)).foregroundColor(Theme.text2)
                             }
-                            .font(.system(size: 12)).padding(.vertical, 4).padding(.horizontal, 6).contentShape(Rectangle())
+                            .font(.system(size: 12)).padding(.vertical, 5).contentShape(Rectangle())
                             .onTapGesture { doc.selection = nil; doc.seek(to: m.frame) }
                             .contextMenu { Button(Loc.t("delete")) { doc.removeMarker(m.id) } }
                         }
                     }
-                }.frame(maxHeight: 260)
+                }.frame(maxHeight: .infinity)
             }
             Button(Loc.t("detectSilences")) { doc.markSilences() }.buttonStyle(FlatButton())
-            Spacer()
-        }.padding(12)
+                .frame(maxWidth: .infinity, alignment: .center).padding(.top, 6)   // bouton centré en bas de la carte
+        }.frame(maxHeight: .infinity)
     }
 
     private var inspector: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 16) {
             Card(title: Loc.t("file")) {
                 KV(k: "Format", v: doc.url.pathExtension.uppercased())
                 KV(k: Loc.t("sampleRate"), v: "\(String(format: "%g", doc.info.sampleRate / 1000)) kHz")
                 KV(k: Loc.t("channels"), v: "\(doc.info.channels)")
                 KV(k: Loc.t("bitDepth"), v: "\(doc.info.bitDepth) bits")
-                KV(k: Loc.t("duration"), v: timeString(doc.total, rate: doc.rate, ms: false))
                 KV(k: Loc.t("size"), v: fileSize())
             }
-            Card(title: Loc.t("selection")) {
+            Card(title: Loc.t("montage")) {
+                KV(k: Loc.t("duration"), v: timeString(doc.total, rate: doc.rate, ms: false))
+                KV(k: Loc.t("segments"), v: "\(doc.model.clips.count)")
+                KV(k: Loc.t("markers"), v: "\(doc.model.markers.count)")
+            }
+            Card(title: Loc.t("selection"), fill: true) {
                 if let s = doc.selection {
                     KV(k: Loc.t("start"), v: timeString(s.lowerBound, rate: doc.rate))
                     KV(k: Loc.t("end"), v: timeString(s.upperBound, rate: doc.rate))
                     KV(k: Loc.t("duration"), v: timeString(s.upperBound - s.lowerBound, rate: doc.rate))
-                } else { KV(k: Loc.t("selection"), v: "—") }
-            }
-            Spacer()
-        }.padding(12)
+                } else {
+                    Spacer()
+                    Text(Loc.t("noSelection")).font(.system(size: 12)).multilineTextAlignment(.center).foregroundColor(Theme.text2)
+                        .frame(maxWidth: .infinity)
+                    Spacer()
+                }
+            }.frame(maxHeight: .infinity)
+        }
     }
 
     private var exportBar: some View {
@@ -211,7 +223,7 @@ struct EditorView: View {
             Button(doc.selection != nil ? Loc.t("exportSelection") : Loc.t("exportWhole")) { doc.export() }
                 .buttonStyle(FlatButton(primary: true))
         }
-        .padding(.horizontal, 16).padding(.vertical, 12).background(Theme.card.opacity(0.6))
+        .padding(.horizontal, 28).padding(.vertical, 14).background(Theme.card.opacity(0.6))
     }
 
     // MARK: Utilitaires

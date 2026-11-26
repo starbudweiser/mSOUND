@@ -10,7 +10,7 @@ import MSoundShared
 
     init(doc: EditorDocument) {
         self.doc = doc
-        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1120, height: 720),
+        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1360, height: 680),
                           styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
                           backing: .buffered, defer: false)
         super.init()
@@ -18,8 +18,11 @@ import MSoundShared
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
         window.isReleasedWhenClosed = false
-        window.minSize = NSSize(width: 1000, height: 560)
-        window.contentView = NSHostingView(rootView: EditorView(doc: doc))
+        // La taille de la fenêtre est celle de l'utilisateur, jamais dictée par le contenu SwiftUI (sinon elle peut s'écraser).
+        let host = NSHostingView(rootView: EditorView(doc: doc))
+        host.sizingOptions = []
+        window.contentView = host
+        window.contentMinSize = NSSize(width: 1200, height: 620)
         window.delegate = self
         window.center()
     }
