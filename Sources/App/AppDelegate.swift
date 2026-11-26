@@ -35,11 +35,16 @@ import MSoundShared
     private var editors: [EditorWindowController] = []
     var hasEditors: Bool { !editors.isEmpty }
     private lazy var aboutWin = SecondaryWindow(size: NSSize(width: 356, height: 470), title: { Loc.t("about") }) { NSHostingView(rootView: AboutView()) }
+    private lazy var homeWin = SecondaryWindow(size: NSSize(width: 560, height: 450), title: { "mSOUND" }) { [unowned self] in
+        NSHostingView(rootView: HomeView(open: { urls in MainActor.assumeIsolated { urls.forEach(self.openEditor) } },
+                                         openPanel: { MainActor.assumeIsolated { self.openAction() } },
+                                         settings: { MainActor.assumeIsolated { self.settingsWin.show() } }))
+    }
     private lazy var settingsWin = SecondaryWindow(size: NSSize(width: 520, height: 690), title: { Loc.t("settingsTitle") }) { NSHostingView(rootView: SettingsView()) }
 
     /// Dock et menu seulement quand une fenêtre (éditeur, réglages, à propos) est ouverte ; sinon agent discret.
     func updatePolicy() {
-        let any = !editors.isEmpty || aboutWin.isVisible || settingsWin.isVisible
+        let any = !editors.isEmpty || aboutWin.isVisible || settingsWin.isVisible || homeWin.isVisible
         NSApp.setActivationPolicy(any ? .regular : .accessory)
     }
 
@@ -48,19 +53,19 @@ import MSoundShared
         NSApp.setActivationPolicy(.accessory)
         AppTheme.apply()
         MainMenu.install(target: self)
-        for w in [aboutWin, settingsWin] { w.onVisibilityChange = { [weak self] in self?.updatePolicy() } }
+        for w in [aboutWin, settingsWin, homeWin] { w.onVisibilityChange = { [weak self] in self?.updatePolicy() } }
         // Mise à jour automatique : une recherche par jour, installation dès que rien n'est en cours.
         Timer.scheduledTimer(withTimeInterval: 3600, repeats: true) { _ in MainActor.assumeIsolated { Updater.shared.tick() } }
         DispatchQueue.main.asyncAfter(deadline: .now() + 15) { Updater.shared.tick() }
         // Lancée à la main (Dock, Finder) sans fichier : on ouvre les réglages pour que l'appli ne reste pas invisible.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
             guard let self, NSApp.isActive, self.editors.isEmpty, !ProgressPanelController.shared.model.isRunning else { return }
-            self.settingsWin.show()
+            self.homeWin.show()
         }
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        if !flag { settingsWin.show() }
+        if !flag { homeWin.show() }
         return true
     }
 
@@ -69,6 +74,7 @@ import MSoundShared
     func application(_ app: NSApplication, open urls: [URL]) {
         for url in urls {
             if url.isFileURL { openEditor(url); continue }
+            if url.host == "home" { homeWin.show(); continue }
             if url.host == "settings" { settingsWin.show(); continue }
             if url.host == "about" { aboutWin.show(); continue }
             if url.host == "fx", let r = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.first(where: { $0.name == "recipe" })?.value,
@@ -94,6 +100,8 @@ import MSoundShared
                 self?.editors.removeAll { $0 === c }
                 self?.updatePolicy()
             }
+            NSDocumentController.shared.noteNewRecentDocumentURL(url)
+            homeWin.close()
             editors.append(c)
             updatePolicy()
             c.window.makeKeyAndOrderFront(nil)

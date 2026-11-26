@@ -26,6 +26,7 @@ enum AppTheme {
     init(size: NSSize, title: @escaping () -> String, make: @escaping () -> NSView) { self.size = size; self.title = title; self.make = make }
 
     var isVisible: Bool { window?.isVisible ?? false }
+    func close() { window?.close() }
 
     func show() {
         if window == nil {
