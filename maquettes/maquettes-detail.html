@@ -1,0 +1,206 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>mSOUND — Maquettes détaillées (Flat Round, arrondi 4)</title><style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--rr:20}
+body{font:13px/1.4 -apple-system,"SF Pro Text",system-ui,sans-serif;background:#0b0b0d;color:#eee;-webkit-font-smoothing:antialiased}
+.top{padding:18px 28px 6px;display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.top h1{font-size:20px;font-weight:700}.top .sb{color:#999}
+.tabs{display:flex;gap:6px;padding:10px 28px;flex-wrap:wrap}
+.tabs button{background:#222;color:#eee;border:0;padding:8px 16px;border-radius:999px;font:inherit;font-weight:500;cursor:pointer}
+.tabs button.on{background:#14b8a6;color:#04201c}
+.tools{display:none;align-items:center;gap:14px;padding:4px 28px 12px;color:#aaa;flex-wrap:wrap}
+.tools.on{display:flex}
+.tools input[type=range]{width:220px;accent-color:#14b8a6}
+.seg{display:inline-flex;background:#222;border-radius:999px;padding:3px}
+.seg button{border:0;background:none;color:#eee;font:inherit;padding:4px 14px;border-radius:999px;cursor:pointer}
+.seg button.on{background:#444}
+.tools output{color:#fff;font-weight:600;min-width:34px}
+.legend{color:#999;padding:0 28px 10px;max-width:1120px}
+.stage{padding:6px 28px 20px;display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start}
+.cap{color:#888;padding:0 28px 8px;font-size:12px}
+
+/* ---------- fenêtre commune ---------- */
+.win{width:1120px;height:720px;display:grid;grid-template-columns:230px 1fr 250px;grid-template-rows:auto 1fr auto;overflow:hidden;position:relative;
+ background:var(--bg);color:var(--t);border-radius:var(--rw);box-shadow:var(--sh);font-size:12.5px}
+.bar{grid-column:1/4;display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:var(--bd)}
+.lights{display:flex;gap:7px}.lights i{width:12px;height:12px;border-radius:50%;display:block}
+.lights i:nth-child(1){background:#ff5f57}.lights i:nth-child(2){background:#febc2e}.lights i:nth-child(3){background:#28c840}
+.brand{font-weight:700;font-size:15px;margin-left:8px}.brand b{color:var(--m)}
+.fname{color:var(--t2);margin-left:6px}.fname b{color:var(--t);font-weight:600}
+.tp{margin-left:auto;display:flex;align-items:center;gap:6px}
+.tb{background:var(--ctl);color:var(--t);border-radius:var(--rc);width:32px;height:28px;display:grid;place-items:center;font-size:13px}
+.tb.rec{color:#ff453a}.tb.pri{background:var(--acc);color:var(--onacc)}
+.time{font:600 17px/1 ui-monospace,"SF Mono",monospace;background:var(--card);border:var(--bd);border-radius:var(--rc);padding:6px 12px;margin:0 6px;letter-spacing:.02em}
+.btn{background:var(--ctl);color:var(--t);padding:6px 12px;border-radius:var(--rc);font-weight:500;display:inline-block;text-align:center}
+.btn.pri{background:var(--acc);color:var(--onacc)}
+.side{padding:12px;display:flex;flex-direction:column;gap:12px;overflow:hidden;border-right:var(--bd)}
+.insp{padding:12px;display:flex;flex-direction:column;gap:12px;overflow:hidden;border-left:var(--bd)}
+.main{padding:12px;display:flex;flex-direction:column;gap:10px;overflow:hidden;min-width:0}
+.h{font-size:10.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--t2);margin-bottom:6px}
+.box{background:var(--card);border:var(--bd);border-radius:var(--rb);padding:10px;box-shadow:var(--shc)}
+.row{display:flex;justify-content:space-between;align-items:center;padding:3px 0;gap:8px}
+.row span:first-child{color:var(--t2)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{padding:5px 10px;border-radius:var(--rch);background:var(--ctl);color:var(--t);font-size:12px}
+.chip.on{background:var(--acc);color:var(--onacc);font-weight:600}
+.tag{font-size:10.5px;font-weight:600;padding:2px 8px;border-radius:var(--rch);background:var(--ctl);color:var(--t2)}
+.tag.ok{background:color-mix(in srgb,var(--ok) 22%,transparent);color:var(--ok)}
+.tag.warn{background:color-mix(in srgb,var(--warn) 22%,transparent);color:var(--warn)}
+.fl{display:flex;flex-direction:column;gap:4px}
+.f{display:grid;grid-template-columns:30px 1fr auto;gap:8px;align-items:center;padding:7px 8px;border-radius:var(--rc);background:var(--card);border:var(--bd)}
+.f.sel{outline:2px solid var(--acc)}
+.f .ic{width:30px;height:30px;border-radius:calc(var(--rc) - 1px);display:grid;place-items:center;font-size:9.5px;font-weight:700;color:#fff;background:var(--c1)}
+.f .n{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.f .s{color:var(--t2);font-size:11px}
+.seq{display:flex;flex-direction:column;gap:2px}
+.seq .it{display:flex;justify-content:space-between;padding:5px 8px;border-radius:var(--rc);color:var(--t2)}
+.seq .it.on{background:var(--ctl);color:var(--t)}
+.wv{background:var(--card);border:var(--bd);border-radius:var(--rb);padding:8px 10px;display:flex;flex-direction:column;gap:6px;flex:1;min-height:0;box-shadow:var(--shc)}
+.ruler{display:flex;justify-content:space-between;color:var(--t2);font-size:10.5px;font-family:ui-monospace,monospace;padding:0 2px}
+.chn{position:relative;flex:1;min-height:0;background:var(--wbg);border-radius:calc(var(--rc) - 2px);overflow:hidden}
+.chn svg{position:absolute;inset:0;width:100%;height:100%}
+.chn .lb{position:absolute;left:6px;top:4px;font-size:10px;color:var(--t2);z-index:2}
+.selr{position:absolute;top:0;bottom:0;left:31%;width:24%;background:color-mix(in srgb,var(--acc) 26%,transparent);border-left:2px solid var(--acc);border-right:2px solid var(--acc);z-index:1}
+.ph{position:absolute;top:0;bottom:0;left:31%;width:2px;background:var(--m);z-index:3}
+.mk{position:absolute;top:0;bottom:0;width:1px;background:color-mix(in srgb,var(--t2) 55%,transparent);z-index:1}
+.mk em{position:absolute;top:3px;left:4px;font:600 10px/1 -apple-system,sans-serif;font-style:normal;color:var(--t2);white-space:nowrap}
+.mini{height:34px;position:relative;background:var(--wbg);border-radius:calc(var(--rc) - 2px);overflow:hidden;flex:none}
+.mini svg{position:absolute;inset:0;width:100%;height:100%}
+.mini .vw{position:absolute;top:0;bottom:0;left:18%;width:46%;border:2px solid var(--acc);border-radius:3px;background:color-mix(in srgb,var(--acc) 14%,transparent)}
+.ed{display:flex;gap:4px;flex-wrap:nowrap}.ed .btn{padding:6px 8px;white-space:nowrap;font-size:12px}
+.vu{display:flex;gap:4px;height:92px}
+.vu i{flex:1;border-radius:3px;background:linear-gradient(to top,var(--ok) 0 60%,var(--warn) 60% 85%,#ff453a 85%);-webkit-mask:linear-gradient(to top,#000 var(--lv),transparent var(--lv));mask:linear-gradient(to top,#000 var(--lv),transparent var(--lv));background-color:var(--ctl)}
+.vuw{display:flex;gap:6px}.vuw .sc{display:flex;flex-direction:column;justify-content:space-between;color:var(--t2);font-size:9.5px;font-family:ui-monospace,monospace}
+.conv{grid-column:1/4;white-space:nowrap;border-top:var(--bd);padding:12px 16px;display:grid;grid-template-columns:auto 1fr auto;gap:18px;align-items:center;background:color-mix(in srgb,var(--card) 60%,transparent)}
+.conv .h{margin:0 0 5px}.conv .chips{flex-wrap:nowrap;gap:4px}.conv .chip{padding:5px 8px}
+.cv-opt{display:flex;gap:16px;color:var(--t2);flex-wrap:nowrap;white-space:nowrap;justify-content:center}.cv-opt b{color:var(--t);font-weight:600}
+.big{padding:10px 20px;font-weight:650;font-size:13px}
+.m{color:var(--m)}
+
+/* ---------- 1. Flat Round ---------- */
+[data-d=round]{--rw:calc(var(--rr)*1px + 6px);--rb:calc(var(--rr)*1px);--rc:calc(var(--rr)*.6px);--rch:calc(var(--rr)*1px);--m:#2dd4bf;--sh:0 24px 60px rgba(0,0,0,.35);--shc:none;--bd:none}
+[data-d=round][data-th=sombre]{--bg:#131316;--card:#232327;--ctl:#2c2c31;--wbg:#17171a;--t:#f5f5f7;--t2:#98989f;--acc:#0a84ff;--onacc:#fff;--ok:#30d158;--warn:#ff9f0a;--wave:#2dd4bf;--wave2:#5eead4}
+[data-d=round][data-th=clair]{--bg:#f1f1f5;--card:#fff;--ctl:#e8e8ef;--wbg:#f6f6fa;--t:#1c1c22;--t2:#6b6b78;--acc:#6a5af0;--onacc:#fff;--ok:#2fb36a;--warn:#e08a00;--wave:#6a5af0;--wave2:#8e82f5;--m:#0d9488;--sh:0 24px 60px rgba(0,0,0,.18);--shc:0 1px 0 rgba(0,0,0,.04)}
+[data-d=round] .side,[data-d=round] .insp,[data-d=round] .bar,[data-d=round] .conv{border:0}
+[data-d=round] .f:nth-child(1){--c1:#7c6cff}[data-d=round] .f:nth-child(2){--c1:#ff7a59}[data-d=round] .f:nth-child(3){--c1:#2fb36a}[data-d=round] .f:nth-child(4){--c1:#19a7ce}
+/* ---------- 2. Socle standard ---------- */
+[data-d=socle]{--rw:8px;--rb:6px;--rc:4px;--rch:4px;--bg:#131316;--card:#1c1c1f;--ctl:#2c2c31;--wbg:#101013;--t:#f5f5f7;--t2:#98989f;--acc:#0a84ff;--onacc:#fff;--m:#14b8a6;--ok:#30d158;--warn:#ff9f0a;
+ --sh:0 20px 50px rgba(0,0,0,.5);--shc:none;--bd:1px solid #303035;--wave:#409cff;--wave2:#409cff;font-size:12px}
+[data-d=socle] .f{--c1:#333;padding:5px 8px}[data-d=socle] .f .ic{color:#38bdf8;border-radius:3px}
+[data-d=socle] .box{padding:8px}
+/* ---------- 3. Flat Mat ---------- */
+[data-d=mat]{--rw:12px;--rb:12px;--rc:8px;--rch:999px;--m:#d9622b;--sh:0 18px 50px rgba(60,40,10,.18);--shc:none}
+[data-d=mat][data-th=clair]{--bg:#f4f1ec;--card:#fff;--ctl:#ebe6de;--wbg:#faf8f4;--t:#26231e;--t2:#7b756a;--acc:#26231e;--onacc:#f4f1ec;--ok:#3f8f5a;--warn:#b7791f;--bd:1px solid #e3ddd2;--wave:#26231e;--wave2:#7b756a}
+[data-d=mat][data-th=sombre]{--bg:#131316;--card:#232327;--ctl:#2c2c31;--wbg:#17171a;--t:#f5f5f7;--t2:#98989f;--acc:#0a84ff;--onacc:#fff;--m:#f08a52;--ok:#30d158;--warn:#ff9f0a;--sh:0 18px 50px rgba(0,0,0,.5);--bd:1px solid #303035;--wave:#f08a52;--wave2:#f5b48f}
+[data-d=mat] .f{--c1:#26231e}[data-d=mat][data-th=sombre] .f{--c1:#2c2c31}
+/* ---------- 4. Verre ---------- */
+[data-d=verre]{--rw:22px;--rb:18px;--rc:12px;--rch:999px;--bg:linear-gradient(135deg,#2a1f5c,#0e4a6b 55%,#14383a);--card:rgba(255,255,255,.10);--ctl:rgba(255,255,255,.14);--wbg:rgba(0,0,0,.22);--t:#f5f5f7;--t2:rgba(235,235,245,.62);--acc:#0a84ff;--onacc:#fff;--m:#5eead4;--ok:#5fe08a;--warn:#ffc04d;
+ --sh:0 30px 70px rgba(0,0,0,.5);--shc:inset 0 1px 0 rgba(255,255,255,.18);--bd:1px solid rgba(255,255,255,.14);--wave:#7dd3fc;--wave2:#c4b5fd}
+[data-d=verre] .box,[data-d=verre] .wv,[data-d=verre] .f{backdrop-filter:blur(24px) saturate(1.4)}
+[data-d=verre] .f .ic{background:linear-gradient(135deg,#ffffff55,#ffffff18);border:1px solid rgba(255,255,255,.25)}
+[data-d=verre] .side,[data-d=verre] .insp{background:rgba(255,255,255,.05)}
+
+/* ---------- menu contextuel Finder ---------- */
+.fm{width:330px;background:rgba(40,40,44,.96);color:#f2f2f4;border-radius:10px;padding:5px;box-shadow:0 18px 40px rgba(0,0,0,.55),0 0 0 .5px rgba(255,255,255,.18);font-size:13px}
+.fm .i{padding:4px 12px;border-radius:5px;display:flex;justify-content:space-between;gap:8px}
+.fm .i.d{color:#8a8a90}
+.fm hr{border:0;border-top:1px solid rgba(255,255,255,.12);margin:5px 8px}
+.fm .i.ms{display:flex;gap:8px;justify-content:flex-start;align-items:center}
+.fm .i.ms::before{content:"";width:13px;height:13px;border-radius:3px;background:#14b8a6;flex:none}
+.fm .i.hl{background:#0a64d8}
+.fnote{max-width:640px;color:#aaa;line-height:1.55}
+.fnote h3{color:#eee;font-size:14px;margin-bottom:6px}.fnote li{margin:4px 0 4px 18px}
+
+:root{--rr:4}
+[data-d=round]{--rw:10px}
+[data-d=round][data-th=clair]{--bg:#ece3d0;--card:#f7f1e3;--ctl:#e1d6bd;--wbg:#f2ead8;--t:#2b2619;--t2:#7d725a;--acc:#b9731a;--onacc:#fff;--ok:#3f8f5a;--warn:#b7791f;--wave:#a8691a;--wave2:#c99a52;--m:#0d9488;--sh:0 24px 60px rgba(70,50,10,.2);--shc:none}
+.w2{width:760px;height:560px;display:flex;flex-direction:column;background:var(--bg);color:var(--t);border-radius:var(--rw);box-shadow:var(--sh);overflow:hidden;font-size:12.5px}
+.w2 .bar{grid-column:auto}.w2 .body{padding:16px;display:flex;flex-direction:column;gap:12px;flex:1;overflow:hidden}
+.job{display:grid;grid-template-columns:34px 1fr 130px 120px;white-space:nowrap;gap:12px;align-items:center;background:var(--card);border-radius:var(--rb);padding:9px 12px}
+.job .ic{width:34px;height:34px;border-radius:var(--rc);display:grid;place-items:center;font-size:9.5px;font-weight:700;color:#fff;background:#2fb36a}
+.pb{height:6px;border-radius:var(--rch);background:var(--ctl);overflow:hidden;margin-top:5px}.pb i{display:block;height:100%;background:var(--acc)}
+.tg{display:inline-block;width:34px;height:20px;border-radius:99px;background:var(--ctl);position:relative}.tg.on{background:var(--acc)}
+.tg::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff}.tg.on::after{left:16px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.scr{padding:6px 28px 28px}.scr h2{font-size:14px;color:#ccc;margin:6px 0 10px;font-weight:600}
+.pick{display:flex;gap:6px;padding:4px 28px 10px}
+</style></head><body>
+<div class="top"><h1><span style="color:#14b8a6">m</span>SOUND — Maquettes détaillées</h1><span class="sb">Flat Round · arrondi 4 · sombre / clair sable</span></div>
+<nav class="tabs" id="tabs"><button data-s="1" class="on">1 · Éditeur</button><button data-s="2">2 · Conversion par lot</button><button data-s="3">3 · Réglages</button></nav>
+<div class="tools on"><span class="seg" id="seg"><button data-th="sombre" class="on">Sombre</button><button data-th="clair">Clair sable</button></span></div>
+<div class="scr" id="s1"><h2>1 · Éditeur : un fichier, sélection, effets, export</h2><div class="stage" style="padding:0"><div class="win" data-d="round" data-th="sombre" class="win ed1" >
+ <div class="bar"><div class="lights"><i></i><i></i><i></i></div><div class="brand"><b>m</b>SOUND</div>
+  <div class="fname">Interview_Marie_v3.<b>wav</b> · 48 kHz · 24 bits · stéréo · 42:18</div>
+  <div class="tp"><span class="tb">⏮</span><span class="tb pri">▶</span><span class="tb">⏹</span><span class="tb">⏭</span><span class="tb rec">●</span><span class="time">00:12:46.320</span><span class="tb">🔁</span></div></div>
+
+ <div class="side">
+  <div><div class="h">Fichiers ouverts</div><div class="fl">
+   <div class="f sel"><div class="ic">WAV</div><div><div class="n">Interview_Marie_v3</div><div class="s">42:18 · 24 bits</div></div><span class="tag">●</span></div>
+   <div class="f"><div class="ic">M4A</div><div><div class="n">Podcast_ep12</div><div class="s">58:02 · AAC 256</div></div></div>
+   <div class="f"><div class="ic">FLAC</div><div><div class="n">Concert_live_1987</div><div class="s">1:12:40 · 44,1 kHz</div></div></div>
+   <div class="f"><div class="ic">MP3</div><div><div class="n">Jingle_intro</div><div class="s">0:08 · 320 kbps</div></div></div></div></div>
+  <div><div class="h">Pistes / chapitres</div><div class="box seq">
+   <div class="it"><span>1 · Introduction</span><span>00:00</span></div>
+   <div class="it on"><span>2 · Question 1</span><span>09:41</span></div>
+   <div class="it"><span>3 · Question 2</span><span>21:05</span></div>
+   <div class="it"><span>4 · Conclusion</span><span>38:12</span></div></div></div>
+  <div><div class="h">Découper automatiquement</div><div class="chips"><span class="chip on">Silences</span><span class="chip">Durée</span><span class="chip">Repères</span></div></div>
+ </div>
+
+ <div class="main">
+  <div class="ed"><span class="btn">✂ Couper</span><span class="btn">⎘ Copier</span><span class="btn">⌫ Suppr.</span><span class="btn">⇥ Garder</span><span class="btn">⌇ Séparer</span><span class="btn">⊕ Fusionner</span><span class="btn">⚑ Repère</span>
+   <span style="margin-left:auto" class="btn">− ＋</span></div>
+  <div class="wv">
+   <div class="ruler"><span>09:00</span><span>10:00</span><span>11:00</span><span>12:00</span><span>13:00</span><span>14:00</span><span>15:00</span><span>16:00</span></div>
+   <div class="chn"><span class="lb">G</span><div class="selr"></div><div class="ph"></div><div class="mk" style="left:12%"><em>Q1</em></div><div class="mk" style="left:77%"><em>Silence</em></div><svg id="w1" preserveAspectRatio="none" viewBox="0 0 1000 100"></svg></div>
+   <div class="chn"><span class="lb">D</span><div class="selr"></div><div class="ph"></div><div class="mk" style="left:12%"></div><div class="mk" style="left:77%"></div><svg id="w2" preserveAspectRatio="none" viewBox="0 0 1000 100"></svg></div>
+   <div class="mini"><div class="vw"></div><svg id="w3" preserveAspectRatio="none" viewBox="0 0 1000 100"></svg></div>
+   <div class="row" style="color:var(--t2);font-size:11.5px"><span style="white-space:nowrap">Sélection <b style="color:var(--t)">11:04.12 → 14:02.88</b> · 2:58</span><span style="white-space:nowrap">Aimantation aux silences ✓</span></div>
+  </div>
+ </div>
+
+ <div class="insp">
+  <div><div class="h">Niveaux</div><div class="box"><div class="vuw"><div class="sc"><span>0</span><span>−12</span><span>−24</span><span>−48</span></div><div class="vu" style="flex:1"><i style="--lv:72%"></i><i style="--lv:66%"></i></div></div>
+   <div class="row" style="margin-top:6px"><span>Crête</span><b>−3,2 dB</b></div><div class="row"><span>Volume perçu</span><b>−16,4 LUFS</b></div></div></div>
+  <div><div class="h">Effets sur la sélection</div><div class="box">
+   <div class="row"><span>Normaliser</span><span class="tag ok">−1 dB</span></div>
+   <div class="row"><span>Fondu entrant / sortant</span><b>2 s</b></div>
+   <div class="row"><span>Réduction de bruit</span><span class="tag">Off</span></div>
+   <div class="row"><span>Égaliseur · Compresseur</span><b>›</b></div></div></div>
+  <div><div class="h">Fichier</div><div class="box">
+   <div class="row"><span>Poids</span><b>413 Mo</b></div><div class="row"><span>Débit</span><b>2 304 kb/s</b></div><div class="row"><span>Étiquettes</span><span class="tag ok">Complètes</span></div></div></div>
+ </div>
+
+ <div class="conv">
+  <div><div class="h">Convertir / exporter</div><div class="chips"><span class="chip">MP3</span><span class="chip on">M4A · AAC</span><span class="chip">FLAC</span><span class="chip">WAV</span><span class="chip">AIFF</span><span class="chip">ALAC</span><span class="chip">Opus</span><span class="chip">OGG</span></div></div>
+  <div class="cv-opt"><span>Qualité <b>256 kb/s</b></span><span>Portée <b>Sélection</b></span><span>Sans perte <b>✓</b></span></div>
+  <span class="btn pri big">Exporter la sélection</span>
+ </div>
+</div></div></div></div>
+<div class="scr" id="s2" style="display:none"><h2>2 · Conversion par lot, lancée depuis le menu Finder (petite fenêtre, sans prendre le focus)</h2>
+<div class="w2" data-d="round" data-th="sombre"><div class="bar"><div class="lights"><i></i><i></i><i></i></div><div class="brand"><b>m</b>SOUND</div><div class="fname">Conversion en <b>FLAC</b> · 6 fichiers · sans perte</div></div>
+<div class="body">
+<div class="job"><div class="ic">FLAC</div><div><b>Concert_live_1987.wav</b><div class="pb"><i style="width:100%"></i></div></div><span class="tag ok">Terminé · 38 %</span><span style="color:var(--t2)">412 → 255 Mo</span></div>
+<div class="job"><div class="ic">FLAC</div><div><b>Interview_Marie_v3.wav</b><div class="pb"><i style="width:100%"></i></div></div><span class="tag ok">Terminé · 41 %</span><span style="color:var(--t2)">413 → 244 Mo</span></div>
+<div class="job"><div class="ic">FLAC</div><div><b>Podcast_ep12.aiff</b><div class="pb"><i style="width:64%"></i></div></div><span class="tag">En cours · 64 %</span><span style="color:var(--t2)">12 s restantes</span></div>
+<div class="job"><div class="ic" style="background:var(--ctl);color:var(--t2)">FLAC</div><div><b>Jingle_intro.wav</b><div class="pb"><i style="width:0"></i></div></div><span class="tag">En attente</span><span></span></div>
+<div class="job"><div class="ic" style="background:var(--ctl);color:var(--t2)">FLAC</div><div><b>Ambiance_forêt.wav</b><div class="pb"><i style="width:0"></i></div></div><span class="tag">En attente</span><span></span></div>
+<div class="job"><div class="ic" style="background:#ff7a59">FLAC</div><div><b>Voix_off_brouillon.mp3</b><div style="color:var(--warn);font-size:11px">Source MP3 : conversion possible, mais sans gain de qualité</div></div><span class="tag warn">Avertissement</span><span></span></div>
+<div class="row" style="margin-top:auto"><span>3 sur 6 · à côté des originaux · étiquettes conservées</span><span><span class="btn">Annuler</span> <span class="btn pri">Afficher dans le Finder</span></span></div>
+</div></div></div>
+<div class="scr" id="s3" style="display:none"><h2>3 · Réglages</h2>
+<div class="w2" data-d="round" data-th="sombre" style="height:600px"><div class="bar"><div class="lights"><i></i><i></i><i></i></div><div class="brand"><b>m</b>SOUND · Réglages</div></div>
+<div class="body"><div class="grid2">
+<div class="box"><div class="h">Menu contextuel du Finder (niveau 1)</div>
+<div class="row"><span style="color:var(--t)">Convertir en MP3</span><i class="tg on"></i></div><div class="row"><span style="color:var(--t)">Convertir en M4A (AAC)</span><i class="tg on"></i></div><div class="row"><span style="color:var(--t)">Convertir en FLAC</span><i class="tg on"></i></div><div class="row"><span style="color:var(--t)">Convertir en WAV</span><i class="tg on"></i></div><div class="row"><span style="color:var(--t)">Convertir en AIFF</span><i class="tg on"></i></div><div class="row"><span style="color:var(--t)">Convertir en ALAC</span><i class="tg on"></i></div><div class="row"><span style="color:var(--t)">Convertir en Opus</span><i class="tg on"></i></div><div class="row"><span style="color:var(--t)">Convertir en OGG</span><i class="tg"></i></div><div class="row"><span style="color:var(--t)">Éditer avec mSOUND</span><i class="tg on"></i></div></div>
+<div style="display:flex;flex-direction:column;gap:12px">
+<div class="box"><div class="h">Conversion</div><div class="row"><span>Qualité MP3 / AAC</span><b>256 kb/s</b></div><div class="row"><span>Fréquence</span><b>Source</b></div><div class="row"><span>Dossier de sortie</span><b>À côté de l'original</b></div><div class="row"><span>Conserver les étiquettes</span><i class="tg on"></i></div><div class="row"><span>Écraser sans demander</span><i class="tg"></i></div></div>
+<div class="box"><div class="h">Application</div><div class="row"><span>Langue</span><b>Automatique</b></div><div class="row"><span>Thème</span><b>Sable (clair) · Sombre · Auto</b></div><div class="row"><span>Installer les mises à jour automatiquement</span><i class="tg on"></i></div><div class="row"><span></span><span class="btn">Rechercher une mise à jour</span></div></div></div></div>
+<div class="row" style="margin-top:auto;color:var(--t2)"><span>À propos de mSOUND · DESKTOP MAC TOOLKIT</span><span>♥ Soutenir le projet</span></div></div></div></div>
+
+<script>
+function wave(id,seed,amp,step){let s=seed,r=()=>{s=(s*16807)%2147483647;return s/2147483647};const pts=[];for(let i=0;i<=1000;i+=step){const env=(.25+.75*Math.abs(Math.sin(i/70)*Math.sin(i/230+seed)))*(i>770&&i<830?.06:1);pts.push([i,Math.max(1.5,amp*env*(.35+.65*r()))])}
+let d='M0 50 ';pts.forEach(p=>d+=`L${p[0]} ${50-p[1]} `);for(let k=pts.length-1;k>=0;k--)d+=`L${pts[k][0]} ${50+pts[k][1]} `;d+='Z';
+document.getElementById(id).innerHTML=`<path d="${d}" fill="var(--wave)" opacity=".9"/><line x1="0" x2="1000" y1="50" y2="50" stroke="var(--wave2)" stroke-width=".6" opacity=".6"/>`}
+wave('w1',7,44,3);wave('w2',11,40,3);wave('w3',5,40,6);
+document.querySelectorAll('#tabs button').forEach(b=>b.onclick=()=>{document.querySelectorAll('#tabs button').forEach(x=>x.classList.toggle('on',x===b));[1,2,3].forEach(n=>document.getElementById('s'+n).style.display=n==b.dataset.s?'':'none')});
+document.querySelectorAll('#seg button').forEach(b=>b.onclick=()=>{document.querySelectorAll('[data-d=round]').forEach(w=>w.dataset.th=b.dataset.th);document.querySelectorAll('#seg button').forEach(x=>x.classList.toggle('on',x===b))});
+</script></body></html>
