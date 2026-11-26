@@ -126,6 +126,7 @@ struct EditorView: View {
     @ObservedObject var doc: EditorDocument
     var onOpenFiles: ([URL]) -> Void = { _ in }
     @State private var dropping = false
+    @State private var fxOpen = false
     @AppStorage("inspectorVisible") private var inspectorVisible = false
 
     private var infoLine: String {
@@ -221,19 +222,13 @@ struct EditorView: View {
                 ToolIcon(symbol: "crop", title: Loc.t("keep"), enabled: hasSel) { doc.keepSel() }
             }
             ToolGroup {
-                Menu {
-                    Button(Loc.t("normalize")) { doc.normalize() }
-                    Button(Loc.t("fadeIn")) { doc.fadeIn() }.disabled(!hasSel)
-                    Button(Loc.t("fadeOut")) { doc.fadeOut() }.disabled(!hasSel)
-                    Divider()
-                    Button(Loc.t("gainUp")) { doc.gain(db: 3) }
-                    Button(Loc.t("gainDown")) { doc.gain(db: -3) }
-                } label: {
+                Button { fxOpen.toggle() } label: {
                     HStack(spacing: 6) {
                         Image(systemName: "slider.horizontal.3").font(.system(size: 14, weight: .medium))
                         Text(Loc.t("menuEffects")).font(.system(size: 12.5, weight: .medium))
-                    }.foregroundColor(Theme.text).padding(.horizontal, 10).frame(height: 30)
-                }.menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
+                    }.foregroundColor(Theme.text).padding(.horizontal, 10).frame(height: 30).contentShape(Rectangle())
+                }.buttonStyle(.plain).disabled(doc.working != nil)
+                    .popover(isPresented: $fxOpen, arrowEdge: .bottom) { EffectsPanel(doc: doc) { fxOpen = false } }
             }
             ToolGroup {
                 ToolIcon(symbol: "flag", title: Loc.t("marker"), enabled: true) { doc.addMarker() }
@@ -241,7 +236,11 @@ struct EditorView: View {
                 ToolIcon(symbol: "arrow.left.and.right", title: Loc.t("fit"), enabled: true) { doc.fit() }
             }
             Spacer(minLength: 12)
-            if let s = doc.selection {
+            if let w = doc.working {
+                Text("\(w.title) — \(Int(w.progress * 100)) %").font(.system(size: 12, weight: .medium)).foregroundColor(Theme.text).lineLimit(1)
+                ProgressView(value: w.progress).progressViewStyle(.linear).tint(Theme.accent).frame(width: 120)
+                Button(Loc.t("cancel")) { doc.cancelWork() }.buttonStyle(FlatButton())
+            } else if let s = doc.selection {
                 Text("\(timeString(s.lowerBound, rate: doc.rate)) → \(timeString(s.upperBound, rate: doc.rate))  ·  \(timeString(s.upperBound - s.lowerBound, rate: doc.rate, ms: false))")
                     .font(.system(size: 12, weight: .medium, design: .monospaced)).foregroundColor(Theme.text2).lineLimit(1)
             }

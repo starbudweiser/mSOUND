@@ -150,6 +150,7 @@ final class EditorDocument: ObservableObject {
     func togglePlay() { transport.isPlaying ? pause() : play() }
 
     func play() {
+        guard working == nil else { return }
         guard let player else { return }
         var from = transport.playhead
         var until: Int64? = nil
@@ -201,7 +202,44 @@ final class EditorDocument: ObservableObject {
 
     // MARK: - Édition
 
+    struct Working { var title: String; var progress: Double }
+    @Published var working: Working?
+    private var workToken: CancelToken?
+
+    /// Applique une chaîne de filtres à la sélection (ou à tout) : rendu en arrière-plan, puis remplacement annulable dans le montage.
+    func process(_ steps: [FilterStep], title: String) {
+        guard working == nil, total > 0 else { return }
+        if transport.isPlaying { pause() }
+        let range = selection ?? 0..<total
+        let hadSel = selection != nil
+        let clips = model.clips(in: range)
+        guard !clips.isEmpty else { return }
+        let token = CancelToken(); workToken = token
+        working = Working(title: title, progress: 0)
+        Task.detached { [weak self] in
+            do {
+                let r = try Filters.apply(steps, to: clips, token: token) { p in Task { @MainActor in self?.working?.progress = p } }
+                await MainActor.run { self?.finishWork(range: range, hadSel: hadSel, url: r.url, frames: r.frames) }
+            } catch {
+                await MainActor.run { self?.failWork(error) }
+            }
+        }
+    }
+    func cancelWork() { workToken?.cancel() }
+    private func finishWork(range: Range<Int64>, hadSel: Bool, url: URL, frames: Int64) {
+        working = nil
+        startPeaks(for: url)
+        edited { model.replace(range, with: [Clip(source: url, start: 0, length: frames)]) }
+        if hadSel { selection = range; redraw.send() }
+    }
+    private func failWork(_ e: Error) {
+        working = nil
+        if (e as? ConvertError) == .cancelled { return }
+        message = (e as? FilterError) != nil ? Loc.t("filterSilent") : e.localizedDescription
+    }
+
     private func edited(_ block: () -> Void) {
+        guard working == nil else { return }
         if transport.isPlaying { pause() }
         block()
         selection = nil

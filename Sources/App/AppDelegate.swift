@@ -71,6 +71,8 @@ import MSoundShared
             if url.isFileURL { openEditor(url); continue }
             if url.host == "settings" { settingsWin.show(); continue }
             if url.host == "about" { aboutWin.show(); continue }
+            if url.host == "fx", let r = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.first(where: { $0.name == "recipe" })?.value,
+               let recipe = Recipe(rawValue: r) { current?.process(recipe.steps, title: r); continue }
             let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
             let files = items.filter { $0.name == "file" }.compactMap { $0.value }.map { URL(fileURLWithPath: $0) }
             guard !files.isEmpty else { continue }

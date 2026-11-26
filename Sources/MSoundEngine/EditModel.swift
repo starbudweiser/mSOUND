@@ -130,6 +130,24 @@ public final class EditModel {
     /// Ajoute un fichier à la fin (fusion).
     public func append(_ clip: Clip) { insert([clip], at: totalFrames) }
 
+    /// Remplace la plage par `new` (même durée : repères inchangés) — sert aux filtres rendus en fichier.
+    public func replace(_ range: Range<Int64>, with new: [Clip]) {
+        let r = clamp(range)
+        guard r.lowerBound < r.upperBound, !new.isEmpty else { return }
+        push()
+        var c = clips
+        Self.split(r.lowerBound, &c); Self.split(r.upperBound, &c)
+        var out: [Clip] = [], pos: Int64 = 0, inserted = false
+        for x in c {
+            if pos >= r.lowerBound && pos + x.length <= r.upperBound { if !inserted { out += new; inserted = true } }
+            else { out.append(x) }
+            pos += x.length
+        }
+        clips = out
+        let delta = new.reduce(0) { $0 + $1.length } - (r.upperBound - r.lowerBound)
+        if delta != 0 { markers = markers.map { var m = $0; if m.frame >= r.upperBound { m.frame += delta }; return m } }
+    }
+
     /// Multiplie le gain de la plage (normalisation, gain).
     public func applyGain(_ range: Range<Int64>, factor: Float) {
         transform(range) { c, _, _ in c.g0 *= factor; c.g1 *= factor }
