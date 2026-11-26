@@ -34,7 +34,18 @@ public enum AudioFormat: String, CaseIterable, Sendable, Codable {
     }
 }
 
+/// Jeton d'annulation d'une conversion (utilisable depuis n'importe quel thread).
+public final class CancelToken: @unchecked Sendable {
+    private let lock = NSLock()
+    private var flag = false
+    public init() {}
+    public func cancel() { lock.lock(); flag = true; lock.unlock() }
+    public var isCancelled: Bool { lock.lock(); defer { lock.unlock() }; return flag }
+}
+
 public struct ConvertOptions: Sendable {
+    /// Annulation d'un seul fichier (en plus de l'annulation de la Task).
+    public var cancelToken: CancelToken? = nil
     /// Débit en kb/s pour MP3 et AAC.
     public var bitrateKbps: Int = 256
     /// Nil = fréquence de la source.

@@ -18,6 +18,8 @@ final class ProgressModel: ObservableObject {
 
     @Published var rows: [Row] = []
     private var tasks: [Task<Void, Never>] = []
+    private var filePg: [UUID: Progress] = [:]
+    private var tokens: [UUID: CancelToken] = [:]
     var onAllFinished: (() -> Void)?
 
     var finished: Int { rows.filter { $0.state != .waiting && $0.state != .running }.count }
@@ -30,6 +32,7 @@ final class ProgressModel: ObservableObject {
         if !isRunning { rows.removeAll(); tasks.removeAll() }
         let jobs = files.map { BatchJob(source: $0) }
         rows += jobs.map { Row(id: $0.id, name: $0.source.lastPathComponent, format: format) }
+        for j in jobs { tokens[j.id] = j.token }
         let sources = Dictionary(uniqueKeysWithValues: jobs.map { ($0.id, $0.source) })
         let task = Task { [weak self] in
             await BatchQueue().run(jobs, to: format) { ev in
@@ -41,6 +44,7 @@ final class ProgressModel: ObservableObject {
     }
 
     func cancelAll() {
+        tokens.values.forEach { $0.cancel() }
         tasks.forEach { $0.cancel() }
         tasks.removeAll()
         for i in rows.indices where rows[i].state == .waiting || rows[i].state == .running { rows[i].state = .cancelled }
@@ -49,9 +53,15 @@ final class ProgressModel: ObservableObject {
     private func apply(_ ev: BatchEvent, sources: [UUID: URL]) {
         func idx(_ j: BatchJob) -> Int? { rows.firstIndex { $0.id == j.id } }
         switch ev {
-        case .started(let j): if let i = idx(j), rows[i].state != .cancelled { rows[i].state = .running }
-        case .progress(let j, let p): if let i = idx(j), rows[i].state == .running { rows[i].progress = p }
+        case .started(let j):
+            if let i = idx(j), rows[i].state != .cancelled {
+                rows[i].state = .running
+                publish(j, source: sources[j.id])
+            }
+        case .progress(let j, let p):
+            if let i = idx(j), rows[i].state == .running { rows[i].progress = p; filePg[j.id]?.completedUnitCount = Int64(p * 1000) }
         case .finished(let j, let out):
+            unpublish(j)
             if let i = idx(j) {
                 rows[i].progress = 1
                 rows[i].state = .done(out)
@@ -60,10 +70,33 @@ final class ProgressModel: ObservableObject {
                 rows[i].sizes = "\(Self.mb(a)) → \(Self.mb(b))"
             }
         case .failed(let j, let e):
+            unpublish(j)
             if let i = idx(j), rows[i].state != .cancelled {
                 rows[i].state = e == .cancelled ? .cancelled : e == .sameFormat ? .skipped : .failed(e.errorDescription ?? "")
             }
         }
+    }
+
+    /// Jauge de progression sur l'icône du fichier d'origine dans le Finder (NSProgress de type fichier publié) ;
+    /// le bouton d'arrêt du Finder annule cette conversion.
+    private func publish(_ j: BatchJob, source: URL?) {
+        guard let source else { return }
+        let p = Progress(totalUnitCount: 1000)
+        p.kind = .file
+        p.setUserInfoObject(Progress.FileOperationKind.copying, forKey: .fileOperationKindKey)
+        p.setUserInfoObject(source, forKey: .fileURLKey)
+        p.isCancellable = true
+        p.isPausable = false
+        let token = j.token
+        p.cancellationHandler = { token.cancel() }
+        p.publish()
+        filePg[j.id] = p
+    }
+
+    private func unpublish(_ j: BatchJob) {
+        guard let p = filePg.removeValue(forKey: j.id) else { return }
+        p.completedUnitCount = 1000
+        p.unpublish()
     }
 
     private func checkFinished() { if !isRunning { onAllFinished?() } }

@@ -3,6 +3,7 @@ import Foundation
 public struct BatchJob: Identifiable, Sendable {
     public let id = UUID()
     public let source: URL
+    public let token = CancelToken()
     public init(source: URL) { self.source = source }
 }
 
@@ -32,7 +33,8 @@ public struct BatchQueue: Sendable {
                     group.addTask {
                         onEvent(.started(job))
                         do {
-                            let out = try Converter().convert(job.source, to: format, options: options) {
+                            var o = options; o.cancelToken = job.token
+                            let out = try Converter().convert(job.source, to: format, options: o) {
                                 onEvent(.progress(job, $0))
                             }
                             onEvent(.finished(job, out))

@@ -123,14 +123,13 @@ final class ProgressPanelController {
         let host = NSHostingController(rootView: ProgressContentView(model: model))
         host.sizingOptions = [.preferredContentSize]
         panel.contentViewController = host
-        model.onAllFinished = { [weak self] in self?.scheduleClose() }
+        model.onAllFinished = { [weak self] in self?.finished() }
     }
 
     func add(files: [URL], format: AudioFormat) {
         closeWork?.cancel()
         model.add(files: files, format: format)
-        if !panel.isVisible { place() }
-        panel.orderFrontRegardless()
+        // La progression se voit sur l'icône du fichier dans le Finder ; la fenêtre n'apparaît qu'en cas d'échec.
     }
 
     /// En haut à droite de l'écran où se trouve le pointeur (là où l'utilisateur travaille), sans prendre le focus.
@@ -142,8 +141,16 @@ final class ProgressPanelController {
         panel.setFrameOrigin(NSPoint(x: f.maxX - size.width - 24, y: f.maxY - size.height - 24))
     }
 
+    private func finished() {
+        if model.hasFailure {
+            if !panel.isVisible { place() }
+            panel.orderFrontRegardless()   // les erreurs restent affichées jusqu'à fermeture
+            return
+        }
+        scheduleClose()
+    }
+
     private func scheduleClose() {
-        guard !model.hasFailure else { return }   // les erreurs restent affichées
         let w = DispatchWorkItem { [weak self] in
             guard let self, !self.model.isRunning else { return }
             self.panel.orderOut(nil)

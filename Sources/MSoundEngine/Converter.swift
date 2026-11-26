@@ -78,10 +78,10 @@ public struct Converter {
         do {
             if format == .mp3 {
                 try encodeMP3(src: src, to: temp, rate: outRate, channels: channels, frames: framesToRead,
-                              kbps: options.bitrateKbps, progress: progress)
+                              kbps: options.bitrateKbps, token: options.cancelToken, progress: progress)
             } else {
                 try encodeNative(src: src, to: temp, format: format, rate: outRate, channels: channels, bits: bits,
-                                 client: &client, frames: framesToRead, kbps: options.bitrateKbps, progress: progress)
+                                 client: &client, frames: framesToRead, kbps: options.bitrateKbps, token: options.cancelToken, progress: progress)
             }
             // Déplacement sans écrasement ; en cas de course entre deux tâches, on cherche le nom libre suivant.
             var placed = false
@@ -102,7 +102,7 @@ public struct Converter {
     // MARK: - Encodeurs
 
     private func encodeNative(src: ExtAudioFileRef, to url: URL, format: AudioFormat, rate: Double, channels: UInt32, bits: UInt32,
-                              client: inout AudioStreamBasicDescription, frames: Int64, kbps: Int,
+                              client: inout AudioStreamBasicDescription, frames: Int64, kbps: Int, token: CancelToken?,
                               progress: ((Double) -> Void)?) throws {
         var out = Converter.outputASBD(format, rate: rate, channels: channels, bits: bits)
         var dstRef: ExtAudioFileRef?
@@ -130,7 +130,7 @@ public struct Converter {
         defer { raw.deallocate() }
         var done: Int64 = 0
         while done < frames {
-            if Task.isCancelled { throw ConvertError.cancelled }
+            if Task.isCancelled || token?.isCancelled == true { throw ConvertError.cancelled }
             var n = UInt32(min(Int64(chunk), frames - done))
             var abl = AudioBufferList(mNumberBuffers: 1, mBuffers: AudioBuffer(mNumberChannels: channels, mDataByteSize: UInt32(bytes), mData: raw))
             try check(ExtAudioFileRead(src, &n, &abl), "lecture")
@@ -142,7 +142,7 @@ public struct Converter {
         }
     }
 
-    private func encodeMP3(src: ExtAudioFileRef, to url: URL, rate: Double, channels: UInt32, frames: Int64, kbps: Int,
+    private func encodeMP3(src: ExtAudioFileRef, to url: URL, rate: Double, channels: UInt32, frames: Int64, kbps: Int, token: CancelToken?,
                            progress: ((Double) -> Void)?) throws {
         guard let g = lame_init() else { throw ConvertError.encoderFailed("LAME") }
         defer { lame_close(g) }
@@ -169,7 +169,7 @@ public struct Converter {
 
         var done: Int64 = 0
         while done < frames {
-            if Task.isCancelled { throw ConvertError.cancelled }
+            if Task.isCancelled || token?.isCancelled == true { throw ConvertError.cancelled }
             var n = UInt32(min(Int64(chunk), frames - done))
             var abl = AudioBufferList(mNumberBuffers: 1, mBuffers: AudioBuffer(mNumberChannels: channels, mDataByteSize: UInt32(bytes), mData: raw))
             try check(ExtAudioFileRead(src, &n, &abl), "lecture")
