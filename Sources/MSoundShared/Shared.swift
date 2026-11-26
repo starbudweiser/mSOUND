@@ -40,6 +40,7 @@ public enum Loc {
         "detectSilences": ["fr": "Repères aux silences", "en": "Markers at silences", "es": "Marcadores en silencios", "it": "Marcatori ai silenzi"],
         "noMarkers": ["fr": "Aucun repère.\nTouche M pour en ajouter un.", "en": "No markers.\nPress M to add one.", "es": "Sin marcadores.\nPulsa M para añadir uno.", "it": "Nessun marcatore.\nPremi M per aggiungerne uno."],
         "noSelection": ["fr": "Aucune sélection.\nGlissez sur la forme d'onde.", "en": "No selection.\nDrag across the waveform.", "es": "Sin selección.\nArrastra sobre la forma de onda.", "it": "Nessuna selezione.\nTrascina sulla forma d'onda."],
+        "dropHint": ["fr": "Déposez un fichier audio pour l'ouvrir", "en": "Drop an audio file to open it", "es": "Suelta un archivo de audio para abrirlo", "it": "Rilascia un file audio per aprirlo"],
         "montage": ["fr": "Montage", "en": "Edit", "es": "Montaje", "it": "Montaggio"],
         "segments": ["fr": "Segments", "en": "Segments", "es": "Segmentos", "it": "Segmenti"],
         "file": ["fr": "Fichier", "en": "File", "es": "Archivo", "it": "File"],

@@ -19,7 +19,9 @@ import MSoundShared
         window.titleVisibility = .hidden
         window.isReleasedWhenClosed = false
         // La taille de la fenêtre est celle de l'utilisateur, jamais dictée par le contenu SwiftUI (sinon elle peut s'écraser).
-        let host = NSHostingView(rootView: EditorView(doc: doc))
+        let host = NSHostingView(rootView: EditorView(doc: doc, onOpenFiles: { urls in
+            MainActor.assumeIsolated { urls.forEach { (NSApp.delegate as? AppDelegate)?.openEditor($0) } }
+        }))
         host.sizingOptions = []
         window.contentView = host
         window.contentMinSize = NSSize(width: 1200, height: 620)

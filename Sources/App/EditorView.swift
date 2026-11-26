@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 import AppKit
 import MSoundEngine
 import MSoundShared
@@ -75,6 +76,8 @@ struct TransportBar: View {
 
 struct EditorView: View {
     @ObservedObject var doc: EditorDocument
+    var onOpenFiles: ([URL]) -> Void = { _ in }
+    @State private var dropping = false
 
     private var infoLine: String {
         let ch = doc.info.channels == 1 ? "mono" : doc.info.channels == 2 ? "stéréo" : "\(doc.info.channels) canaux"
@@ -105,6 +108,23 @@ struct EditorView: View {
         }
         .frame(minWidth: 1200, minHeight: 620)
         .background(Theme.bg)
+        .overlay {
+            if dropping {
+                RoundedRectangle(cornerRadius: Theme.radius).strokeBorder(Theme.accent, style: StrokeStyle(lineWidth: 2, dash: [8, 6]))
+                    .background(Theme.accent.opacity(0.12)).padding(10).allowsHitTesting(false)
+                    .overlay(Text(Loc.t("dropHint")).font(.system(size: 15, weight: .semibold)).foregroundColor(Theme.text))
+            }
+        }
+        .onDrop(of: [.fileURL], isTargeted: $dropping) { providers in
+            for p in providers {
+                p.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { item, _ in
+                    guard let d = item as? Data, let u = URL(dataRepresentation: d, relativeTo: nil),
+                          Prefs.audioExtensions.contains(u.pathExtension.lowercased()) else { return }
+                    DispatchQueue.main.async { onOpenFiles([u]) }
+                }
+            }
+            return true
+        }
         .alert(doc.message ?? "", isPresented: Binding(get: { doc.message != nil }, set: { if !$0 { doc.message = nil } })) { Button("OK") {} }
     }
 
