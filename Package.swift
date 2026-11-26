@@ -9,6 +9,8 @@ let package = Package(
     products: [
         .library(name: "MSoundEngine", targets: ["MSoundEngine"]),
         .executable(name: "msound-cli", targets: ["msound-cli"]),
+        .executable(name: "mSOUND", targets: ["mSOUND"]),
+        .executable(name: "mSOUNDFinder", targets: ["mSOUNDFinder"]),
     ],
     targets: [
         .target(name: "CLame", path: "Sources/CLame",
@@ -16,6 +18,11 @@ let package = Package(
         .target(name: "MSoundEngine", dependencies: ["CLame"], path: "Sources/MSoundEngine",
                 linkerSettings: [.unsafeFlags([lame, "/opt/homebrew/lib/libmpg123.a"]),
                                  .linkedFramework("AudioToolbox"), .linkedFramework("AVFoundation")]),
+        .target(name: "MSoundShared", path: "Sources/MSoundShared"),
+        .executableTarget(name: "mSOUND", dependencies: ["MSoundEngine", "MSoundShared"], path: "Sources/App"),
+        .executableTarget(name: "mSOUNDFinder", dependencies: ["MSoundShared"], path: "Sources/FinderExt",
+                          linkerSettings: [.unsafeFlags(["-Xlinker", "-e", "-Xlinker", "_NSExtensionMain"]),
+                                           .linkedFramework("FinderSync"), .linkedFramework("Cocoa")]),
         .executableTarget(name: "msound-cli", dependencies: ["MSoundEngine"], path: "Sources/msound-cli"),
         .testTarget(name: "MSoundEngineTests", dependencies: ["MSoundEngine"], path: "Tests/MSoundEngineTests"),
     ],
