@@ -30,6 +30,8 @@ cat > "$APP/Contents/Info.plist" <<P
 <key>CFBundleIconFile</key><string>mSOUND</string>
 <key>LSMinimumSystemVersion</key><string>14.0</string>
 <key>NSHighResolutionCapable</key><true/>
+<key>CFBundleDocumentTypes</key><array><dict><key>CFBundleTypeName</key><string>Audio</string><key>CFBundleTypeRole</key><string>Editor</string>
+<key>LSHandlerRank</key><string>Alternate</string><key>LSItemContentTypes</key><array><string>public.audio</string></array></dict></array>
 <key>CFBundleURLTypes</key><array><dict><key>CFBundleURLName</key><string>$ID</string>
 <key>CFBundleURLSchemes</key><array><string>$SCHEME</string></array></dict></array>
 </dict></plist>

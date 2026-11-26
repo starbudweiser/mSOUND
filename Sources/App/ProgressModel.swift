@@ -43,6 +43,35 @@ final class ProgressModel: ObservableObject {
         tasks.append(task)
     }
 
+    /// Tâche quelconque (export du montage) affichée comme une ligne ; `work` reçoit un jeton d'annulation et un rappel de progression.
+    func addCustom(name: String, format: AudioFormat,
+                   work: @escaping @Sendable (CancelToken, @escaping @Sendable (Double) -> Void) throws -> URL) {
+        if !isRunning { rows.removeAll(); tasks.removeAll() }
+        let id = UUID(), token = CancelToken()
+        tokens[id] = token
+        rows.append(Row(id: id, name: name, format: format))
+        let t = Task { [weak self] in
+            await MainActor.run { if let i = self?.rows.firstIndex(where: { $0.id == id }) { self?.rows[i].state = .running } }
+            let result: Result<URL, ConvertError> = await Task.detached {
+                do {
+                    let u = try work(token) { p in Task { @MainActor in
+                        if let i = self?.rows.firstIndex(where: { $0.id == id }), self?.rows[i].state == .running { self?.rows[i].progress = p } } }
+                    return .success(u)
+                } catch let e as ConvertError { return .failure(e) }
+                catch { return .failure(.encoderFailed(error.localizedDescription)) }
+            }.value
+            await MainActor.run {
+                guard let self, let i = self.rows.firstIndex(where: { $0.id == id }) else { return }
+                switch result {
+                case .success(let u): self.rows[i].progress = 1; self.rows[i].state = .done(u)
+                case .failure(let e): self.rows[i].state = e == .cancelled ? .cancelled : .failed(e.errorDescription ?? "")
+                }
+                self.checkFinished()
+            }
+        }
+        tasks.append(t)
+    }
+
     func cancelAll() {
         tokens.values.forEach { $0.cancel() }
         tasks.forEach { $0.cancel() }

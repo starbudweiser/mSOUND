@@ -34,59 +34,53 @@ public struct Converter {
     @discardableResult
     public func convert(_ source: URL, to format: AudioFormat, options: ConvertOptions = ConvertOptions(),
                         progress: ((Double) -> Void)? = nil) throws -> URL {
-        var f: ExtAudioFileRef?
-        guard ExtAudioFileOpenURL(source as CFURL, &f) == noErr, let src = f else {
-            throw ConvertError.unreadable(source.lastPathComponent)
-        }
-        defer { ExtAudioFileDispose(src) }
-
         let info = try Converter.info(of: source)
         if source.pathExtension.lowercased() == format.fileExtension,
            format != .alac, format != .m4a, options.range == nil, options.sampleRate == nil {
             throw ConvertError.sameFormat
         }
-
-        let channels = format == .mp3 ? min(max(info.channels, 1), 2) : max(info.channels, 1)
-        var outRate = options.sampleRate ?? info.sampleRate
-        if format == .mp3 { outRate = Converter.mp3Rate(outRate) }
-        let bits: UInt32 = info.bitDepth >= 24 ? 24 : 16
-
-        var client = AudioStreamBasicDescription(
-            mSampleRate: outRate, mFormatID: kAudioFormatLinearPCM,
-            mFormatFlags: kAudioFormatFlagIsFloat | kAudioFormatFlagIsPacked,
-            mBytesPerPacket: 4 * channels, mFramesPerPacket: 1, mBytesPerFrame: 4 * channels,
-            mChannelsPerFrame: channels, mBitsPerChannel: 32, mReserved: 0)
-        try check(ExtAudioFileSetProperty(src, kExtAudioFileProperty_ClientDataFormat,
-                                          UInt32(MemoryLayout<AudioStreamBasicDescription>.size), &client), "format client")
-
-        // Plage à lire
-        var startSec = 0.0
-        var framesToRead = Int64(Double(info.frames) * outRate / max(info.sampleRate, 1))
+        var start: Int64 = 0, length = info.frames
         if let r = options.range {
-            startSec = max(0, r.lowerBound)
-            let end = min(info.duration, r.upperBound)
-            framesToRead = Int64(max(0, end - startSec) * outRate)
-            try check(ExtAudioFileSeek(src, Int64(startSec * info.sampleRate)), "positionnement")
+            start = Int64(max(0, r.lowerBound) * info.sampleRate)
+            let end = min(info.frames, Int64(r.upperBound * info.sampleRate))
+            length = max(0, end - start)
         }
-
         let dir = options.outputDirectory ?? source.deletingLastPathComponent()
-        let base = source.deletingPathExtension().lastPathComponent
-        let temp = dir.appendingPathComponent(".\(base).\(UUID().uuidString.prefix(8)).partial.\(format.fileExtension)")
+        return try export([Clip(source: source, start: start, length: length)], to: format, options: options,
+                          baseName: source.deletingPathExtension().lastPathComponent, directory: dir, progress: progress)
+    }
+
+    /// Exporte une suite de segments (montage) dans un seul fichier. Les fréquences peuvent différer d'un segment à l'autre.
+    @discardableResult
+    public func export(_ clips: [Clip], to format: AudioFormat, options: ConvertOptions = ConvertOptions(),
+                       baseName: String, directory dir: URL, progress: ((Double) -> Void)? = nil) throws -> URL {
+        guard let first = clips.first else { throw ConvertError.unreadable(baseName) }
+        var infos: [URL: SourceInfo] = [:]
+        for c in clips where infos[c.source] == nil { infos[c.source] = try Converter.info(of: c.source) }
+        let fi = infos[first.source]!
+        let channels = format == .mp3 ? min(max(fi.channels, 1), 2) : max(fi.channels, 1)
+        var outRate = options.sampleRate ?? fi.sampleRate
+        if format == .mp3 { outRate = Converter.mp3Rate(outRate) }
+        let bits: UInt32 = fi.bitDepth >= 24 ? 24 : 16
+        let reader = ClipReader(clips: clips, infos: infos, outRate: outRate, channels: channels)
+        let total = reader.totalOutFrames
+
+        let ext = format.fileExtension
+        let temp = dir.appendingPathComponent(".\(baseName).\(UUID().uuidString.prefix(8)).partial.\(ext)")
         var final = temp
         try? FileManager.default.removeItem(at: temp)
-
         do {
             if format == .mp3 {
-                try encodeMP3(src: src, to: temp, rate: outRate, channels: channels, frames: framesToRead,
+                try encodeMP3(reader: reader, to: temp, rate: outRate, channels: channels, frames: total,
                               kbps: options.bitrateKbps, token: options.cancelToken, progress: progress)
             } else {
-                try encodeNative(src: src, to: temp, format: format, rate: outRate, channels: channels, bits: bits,
-                                 client: &client, frames: framesToRead, kbps: options.bitrateKbps, token: options.cancelToken, progress: progress)
+                try encodeNative(reader: reader, to: temp, format: format, rate: outRate, channels: channels, bits: bits,
+                                 frames: total, kbps: options.bitrateKbps, token: options.cancelToken, progress: progress)
             }
             // Déplacement sans écrasement ; en cas de course entre deux tâches, on cherche le nom libre suivant.
             var placed = false
             for _ in 0..<100 {
-                final = Converter.uniqueURL(dir: dir, base: base, ext: format.fileExtension)
+                final = Converter.uniqueURL(dir: dir, base: baseName, ext: ext)
                 do { try FileManager.default.moveItem(at: temp, to: final); placed = true; break }
                 catch CocoaError.fileWriteFileExists { continue }
                 catch let e as NSError where e.code == NSFileWriteFileExistsError { continue }
@@ -101,15 +95,15 @@ public struct Converter {
 
     // MARK: - Encodeurs
 
-    private func encodeNative(src: ExtAudioFileRef, to url: URL, format: AudioFormat, rate: Double, channels: UInt32, bits: UInt32,
-                              client: inout AudioStreamBasicDescription, frames: Int64, kbps: Int, token: CancelToken?,
-                              progress: ((Double) -> Void)?) throws {
+    private func encodeNative(reader: ClipReader, to url: URL, format: AudioFormat, rate: Double, channels: UInt32, bits: UInt32,
+                              frames: Int64, kbps: Int, token: CancelToken?, progress: ((Double) -> Void)?) throws {
         var out = Converter.outputASBD(format, rate: rate, channels: channels, bits: bits)
         var dstRef: ExtAudioFileRef?
         try check(ExtAudioFileCreateWithURL(url as CFURL, Converter.fileType(format), &out, nil,
                                             AudioFileFlags.eraseFile.rawValue, &dstRef), "création du fichier")
         guard let dst = dstRef else { throw ConvertError.encoderFailed("création") }
         defer { ExtAudioFileDispose(dst) }
+        var client = reader.clientFormat
         try check(ExtAudioFileSetProperty(dst, kExtAudioFileProperty_ClientDataFormat,
                                           UInt32(MemoryLayout<AudioStreamBasicDescription>.size), &client), "format client (sortie)")
 
@@ -129,21 +123,19 @@ public struct Converter {
         let raw = UnsafeMutableRawPointer.allocate(byteCount: bytes, alignment: 16)
         defer { raw.deallocate() }
         var done: Int64 = 0
-        while done < frames {
+        while true {
             if Task.isCancelled || token?.isCancelled == true { throw ConvertError.cancelled }
-            var n = UInt32(min(Int64(chunk), frames - done))
-            var abl = AudioBufferList(mNumberBuffers: 1, mBuffers: AudioBuffer(mNumberChannels: channels, mDataByteSize: UInt32(bytes), mData: raw))
-            try check(ExtAudioFileRead(src, &n, &abl), "lecture")
+            let n = try reader.read(into: raw, maxFrames: chunk)
             if n == 0 { break }
-            abl.mBuffers.mDataByteSize = n * channels * 4
+            var abl = AudioBufferList(mNumberBuffers: 1, mBuffers: AudioBuffer(mNumberChannels: channels, mDataByteSize: n * channels * 4, mData: raw))
             try check(ExtAudioFileWrite(dst, n, &abl), "écriture")
             done += Int64(n)
             progress?(Double(done) / Double(max(frames, 1)))
         }
     }
 
-    private func encodeMP3(src: ExtAudioFileRef, to url: URL, rate: Double, channels: UInt32, frames: Int64, kbps: Int, token: CancelToken?,
-                           progress: ((Double) -> Void)?) throws {
+    private func encodeMP3(reader: ClipReader, to url: URL, rate: Double, channels: UInt32, frames: Int64, kbps: Int,
+                           token: CancelToken?, progress: ((Double) -> Void)?) throws {
         guard let g = lame_init() else { throw ConvertError.encoderFailed("LAME") }
         defer { lame_close(g) }
         lame_set_in_samplerate(g, Int32(rate))
@@ -168,11 +160,9 @@ public struct Converter {
         defer { mp3.deallocate() }
 
         var done: Int64 = 0
-        while done < frames {
+        while true {
             if Task.isCancelled || token?.isCancelled == true { throw ConvertError.cancelled }
-            var n = UInt32(min(Int64(chunk), frames - done))
-            var abl = AudioBufferList(mNumberBuffers: 1, mBuffers: AudioBuffer(mNumberChannels: channels, mDataByteSize: UInt32(bytes), mData: raw))
-            try check(ExtAudioFileRead(src, &n, &abl), "lecture")
+            let n = try reader.read(into: raw, maxFrames: chunk)
             if n == 0 { break }
             let p = raw.assumingMemoryBound(to: Float.self)
             let w: Int32
@@ -246,5 +236,68 @@ public struct Converter {
 
     private func check(_ status: OSStatus, _ what: String) throws {
         if status != noErr { throw ConvertError.encoderFailed("\(what) (\(status))") }
+    }
+}
+
+/// Lecture continue d'une suite de segments, convertis en Float32 entrelacé à la fréquence de sortie.
+final class ClipReader {
+    let clips: [Clip]
+    let infos: [URL: Converter.SourceInfo]
+    let outRate: Double
+    let channels: UInt32
+    private var idx = 0
+    private var cur: ExtAudioFileRef?
+    private var remaining: Int64 = 0
+
+    init(clips: [Clip], infos: [URL: Converter.SourceInfo], outRate: Double, channels: UInt32) {
+        self.clips = clips; self.infos = infos; self.outRate = outRate; self.channels = channels
+    }
+    deinit { close() }
+
+    var clientFormat: AudioStreamBasicDescription {
+        AudioStreamBasicDescription(
+            mSampleRate: outRate, mFormatID: kAudioFormatLinearPCM,
+            mFormatFlags: kAudioFormatFlagIsFloat | kAudioFormatFlagIsPacked,
+            mBytesPerPacket: 4 * channels, mFramesPerPacket: 1, mBytesPerFrame: 4 * channels,
+            mChannelsPerFrame: channels, mBitsPerChannel: 32, mReserved: 0)
+    }
+
+    private func outFrames(_ c: Clip) -> Int64 {
+        Int64((Double(c.length) * outRate / max(infos[c.source]?.sampleRate ?? outRate, 1)).rounded())
+    }
+    var totalOutFrames: Int64 { clips.reduce(0) { $0 + outFrames($1) } }
+
+    private func close() { if let c = cur { ExtAudioFileDispose(c); cur = nil } }
+
+    private func open(_ i: Int) throws {
+        close()
+        let c = clips[i]
+        var f: ExtAudioFileRef?
+        guard ExtAudioFileOpenURL(c.source as CFURL, &f) == noErr, let file = f else {
+            throw ConvertError.unreadable(c.source.lastPathComponent)
+        }
+        var client = clientFormat
+        guard ExtAudioFileSetProperty(file, kExtAudioFileProperty_ClientDataFormat,
+                                      UInt32(MemoryLayout<AudioStreamBasicDescription>.size), &client) == noErr else {
+            ExtAudioFileDispose(file); throw ConvertError.encoderFailed("format client")
+        }
+        if c.start > 0 { ExtAudioFileSeek(file, c.start) }
+        cur = file
+        remaining = outFrames(c)
+    }
+
+    /// Lit jusqu'à `maxFrames` trames ; retourne 0 à la fin.
+    func read(into raw: UnsafeMutableRawPointer, maxFrames: UInt32) throws -> UInt32 {
+        while idx < clips.count {
+            if cur == nil { try open(idx) }
+            if remaining <= 0 { close(); idx += 1; continue }
+            var n = UInt32(min(Int64(maxFrames), remaining))
+            var abl = AudioBufferList(mNumberBuffers: 1, mBuffers: AudioBuffer(mNumberChannels: channels, mDataByteSize: n * channels * 4, mData: raw))
+            guard ExtAudioFileRead(cur!, &n, &abl) == noErr else { throw ConvertError.encoderFailed("lecture") }
+            if n == 0 { remaining = 0; continue }
+            remaining -= Int64(n)
+            return n
+        }
+        return 0
     }
 }

@@ -104,6 +104,7 @@ struct ProgressContentView: View {
 /// Petite fenêtre flottante qui n'active jamais l'appli (mode silencieux).
 @MainActor
 final class ProgressPanelController {
+    static let shared = ProgressPanelController()
     let model = ProgressModel()
     private let panel: NSPanel
     private var closeWork: DispatchWorkItem?
@@ -144,6 +145,15 @@ final class ProgressPanelController {
         guard let f = screen?.visibleFrame else { panel.center(); return }
         let size = panel.frame.size
         panel.setFrameOrigin(NSPoint(x: f.maxX - size.width - 24, y: f.maxY - size.height - 24))
+    }
+
+    /// Export lancé depuis l'éditeur : la fenêtre de progression s'affiche.
+    func addCustom(name: String, format: AudioFormat,
+                   work: @escaping @Sendable (CancelToken, @escaping @Sendable (Double) -> Void) throws -> URL) {
+        closeWork?.cancel()
+        model.addCustom(name: name, format: format, work: work)
+        if !panel.isVisible { place() }
+        panel.orderFrontRegardless()
     }
 
     private func finished() {

@@ -94,3 +94,40 @@ final class Box: @unchecked Sendable {
     private let l = NSLock(); private(set) var n = 0
     func inc() { l.lock(); n += 1; l.unlock() }
 }
+
+final class EditModelTests: XCTestCase {
+    let u = URL(fileURLWithPath: "/tmp/x.wav")
+    func model() -> EditModel { EditModel(source: u, frames: 1000, sampleRate: 1000) }
+
+    func testDeleteShiftsAndUndo() {
+        let m = model(); m.addMarker(at: 800, name: "a")
+        m.delete(200..<300)
+        XCTAssertEqual(m.totalFrames, 900)
+        XCTAssertEqual(m.markers.first?.frame, 700)
+        XCTAssertEqual(m.clips.map { [$0.start, $0.length] }, [[0, 200], [300, 700]])
+        m.undo(); XCTAssertEqual(m.totalFrames, 1000); XCTAssertEqual(m.clips.count, 1)
+        m.redo(); XCTAssertEqual(m.totalFrames, 900)
+    }
+    func testKeepOnly() {
+        let m = model(); m.keepOnly(100..<400)
+        XCTAssertEqual(m.totalFrames, 300); XCTAssertEqual(m.clips.first?.start, 100)
+    }
+    func testCopyPaste() {
+        let m = model(); let c = m.clips(in: 0..<100)
+        m.insert(c, at: 500)
+        XCTAssertEqual(m.totalFrames, 1100)
+        XCTAssertEqual(m.clips.map { $0.length }, [500, 100, 500])
+    }
+    func testNeverDeleteEverything() {
+        let m = model(); m.delete(0..<1000); XCTAssertEqual(m.totalFrames, 1000)
+    }
+    func testExportEditedMatchesDuration() throws {
+        let t = ConverterTests(); try t.setUpWithError(); defer { try? t.tearDownWithError() }
+        let wav = try t.makeWAV(seconds: 4)
+        let info = try Converter.info(of: wav)
+        let m = EditModel(source: wav, frames: info.frames, sampleRate: info.sampleRate)
+        m.delete(Int64(1 * info.sampleRate)..<Int64(2 * info.sampleRate))
+        let out = try Converter().export(m.clips, to: .flac, baseName: "edit", directory: t.dir)
+        XCTAssertEqual(try Converter.info(of: out).duration, 3.0, accuracy: 0.05)
+    }
+}

@@ -18,7 +18,7 @@ final class MSoundFinderSync: FIFinderSync {
               urls.allSatisfy(Self.isAudioFile) else { return nil }
         let menu = NSMenu(title: "mSOUND")
         for (i, f) in Prefs.menuFormats(domain: domain).enumerated() {
-            let item = NSMenuItem(title: Loc.t("convertTo", Prefs.displayName(f)), action: #selector(convert(_:)), keyEquivalent: "")
+            let item = NSMenuItem(title: f == "edit" ? Loc.t("editWith") : Loc.t("convertTo", Prefs.displayName(f)), action: #selector(convert(_:)), keyEquivalent: "")
             item.target = self
             item.tag = i   // representedObject ne traverse pas le processus du Finder ; le tag, si
             item.image = Self.menuIcon
@@ -37,8 +37,8 @@ final class MSoundFinderSync: FIFinderSync {
         NSLog("mSOUNDFinder: conversion %{public}@ de %d fichier(s)", format, urls.count)
         var c = URLComponents()
         c.scheme = Prefs.urlScheme(forDomain: domain)
-        c.host = "convert"
-        c.queryItems = [URLQueryItem(name: "format", value: format)] + urls.map { URLQueryItem(name: "file", value: $0.path) }
+        c.host = format == "edit" ? "edit" : "convert"
+        c.queryItems = (format == "edit" ? [] : [URLQueryItem(name: "format", value: format)]) + urls.map { URLQueryItem(name: "file", value: $0.path) }
         guard let url = c.url else { return }
         let cfg = NSWorkspace.OpenConfiguration()
         cfg.activates = false   // mode silencieux : ne prend jamais le focus
