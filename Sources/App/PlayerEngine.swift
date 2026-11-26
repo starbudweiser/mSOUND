@@ -23,6 +23,7 @@ final class PlayerEngine {
     }
 
     var isPlaying: Bool { node.isPlaying }
+    var volume: Float { get { engine.mainMixerNode.outputVolume } set { engine.mainMixerNode.outputVolume = newValue } }
 
     /// Joue [from, until) de la ligne de temps.
     func play(clips: [Clip], from: Int64, until: Int64?) throws {

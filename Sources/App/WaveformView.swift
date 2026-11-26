@@ -38,34 +38,23 @@ final class WaveformView: NSView {
         let head = dark ? NSColor(srgbRed: 0.18, green: 0.83, blue: 0.75, alpha: 1) : NSColor(srgbRed: 0.05, green: 0.58, blue: 0.53, alpha: 1)
         bg.setFill(); bounds.fill()
 
-        let w = Int(bounds.width), lanes = doc.laneCount
         let area = bounds.height - rulerH
-        let laneH = area / CGFloat(lanes)
-        let cols = doc.columns(width: w)
-
+        let mid = rulerH + area / 2
         // Ligne médiane
         ctx.setStrokeColor(muted.withAlphaComponent(0.25).cgColor); ctx.setLineWidth(1)
-        for l in 0..<lanes {
-            let mid = rulerH + laneH * (CGFloat(l) + 0.5)
-            ctx.move(to: CGPoint(x: 0, y: mid)); ctx.addLine(to: CGPoint(x: bounds.width, y: mid))
+        ctx.move(to: CGPoint(x: 0, y: mid)); ctx.addLine(to: CGPoint(x: bounds.width, y: mid)); ctx.strokePath()
+        // Onde en bâtons arrondis (largeur 3, espace 2)
+        let barW: CGFloat = 3, pitch: CGFloat = 5
+        let n = Int((bounds.width / pitch).rounded(.up)) + 1
+        let amps = doc.columns(count: n, start: doc.scroll, perColumn: doc.fpp * Double(pitch))
+        let maxH = area * 0.94
+        ctx.setFillColor(wave.cgColor)
+        for (i, a) in amps.enumerated() {
+            let h = max(2, CGFloat(min(1, a)) * maxH)
+            let r = CGRect(x: CGFloat(i) * pitch, y: mid - h / 2, width: barW, height: h)
+            ctx.addPath(CGPath(roundedRect: r, cornerWidth: barW / 2, cornerHeight: min(barW / 2, h / 2), transform: nil))
         }
-        ctx.strokePath()
-        // Onde
-        ctx.setStrokeColor(wave.cgColor)
-        for l in 0..<lanes {
-            let mid = rulerH + laneH * (CGFloat(l) + 0.5), amp = laneH * 0.5 * 0.94
-            for (x, c) in cols[l].enumerated() {
-                let y1 = mid - CGFloat(min(1, c.1)) * amp
-                var y2 = mid - CGFloat(max(-1, c.0)) * amp
-                if y2 - y1 < 1 { y2 = y1 + 1 }
-                ctx.move(to: CGPoint(x: CGFloat(x) + 0.5, y: y1)); ctx.addLine(to: CGPoint(x: CGFloat(x) + 0.5, y: y2))
-            }
-        }
-        ctx.strokePath()
-        if lanes == 2 {
-            ctx.setStrokeColor(muted.withAlphaComponent(0.35).cgColor)
-            ctx.move(to: CGPoint(x: 0, y: rulerH + laneH)); ctx.addLine(to: CGPoint(x: bounds.width, y: rulerH + laneH)); ctx.strokePath()
-        }
+        ctx.fillPath()
         // Sélection
         if let s = doc.selection {
             let x0 = max(0, doc.x(forFrame: s.lowerBound)), x1 = min(bounds.width, doc.x(forFrame: s.upperBound))
@@ -98,6 +87,31 @@ final class WaveformView: NSView {
             t.draw(at: NSPoint(x: bounds.width - 190, y: bounds.height - 20), withAttributes: attrs)
         }
     }
+
+    // MARK: Menu contextuel (clic droit)
+    override func menu(for event: NSEvent) -> NSMenu? {
+        let m = NSMenu()
+        func add(_ title: String, _ sel: Selector, enabled: Bool = true) {
+            let i = NSMenuItem(title: title, action: sel, keyEquivalent: ""); i.target = self; i.isEnabled = enabled; m.addItem(i)
+        }
+        let hasSel = doc.selection != nil
+        if hasSel { add(Loc.t("exportSelection") + "…", #selector(ctxExport)); m.addItem(.separator()) }
+        add(Loc.t("cut"), #selector(ctxCut), enabled: hasSel)
+        add(Loc.t("copy"), #selector(ctxCopy), enabled: hasSel)
+        add(Loc.t("paste"), #selector(ctxPaste), enabled: !EditorDocument.clipboard.isEmpty)
+        add(Loc.t("delete"), #selector(ctxDelete), enabled: hasSel)
+        add(Loc.t("keep"), #selector(ctxKeep), enabled: hasSel)
+        m.addItem(.separator())
+        add(Loc.t("marker"), #selector(ctxMarker))
+        return m
+    }
+    @objc private func ctxExport() { doc.export() }
+    @objc private func ctxCut() { doc.cut() }
+    @objc private func ctxCopy() { doc.copySel() }
+    @objc private func ctxPaste() { doc.paste() }
+    @objc private func ctxDelete() { doc.deleteSel() }
+    @objc private func ctxKeep() { doc.keepSel() }
+    @objc private func ctxMarker() { doc.addMarker() }
 
     private func drawRuler(muted: NSColor, ctx: CGContext) {
         let secPerPx = doc.fpp / doc.rate
@@ -171,7 +185,9 @@ final class WaveformView: NSView {
         switch e.charactersIgnoringModifiers {
         case " ": doc.togglePlay()
         case "m": doc.addMarker()
-        default: super.keyDown(with: e)
+        default:
+            // ⌫ (supprimer) et ⌦ (Suppr) : retirer la sélection
+            if e.keyCode == 51 || e.keyCode == 117 { doc.deleteSel() } else { super.keyDown(with: e) }
         }
     }
 }

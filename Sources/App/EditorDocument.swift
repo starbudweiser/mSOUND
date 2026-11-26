@@ -11,6 +11,8 @@ import MSoundShared
     @Published var isPlaying = false
 }
 
+@MainActor final class ZoomState: ObservableObject { @Published var level: Double = 0 }
+
 @MainActor
 final class EditorDocument: ObservableObject {
     let url: URL
@@ -27,9 +29,12 @@ final class EditorDocument: ObservableObject {
     @Published var message: String?
     @Published var exportFormat: AudioFormat = .m4a
     @Published var exportKbps = 256
+    @Published var volume: Float = 1 { didSet { player?.volume = volume } }
 
     var fpp: Double = 1000                   // trames par pixel
     var scroll: Int64 = 0                    // première trame visible
+    let zoomState = ZoomState()
+    var visibleFrames: Int64 { Int64(Double(viewWidth) * fpp) }
     var viewWidth: CGFloat = 800 { didSet { if oldValue != viewWidth, !userZoomed { fit() } } }
     private var userZoomed = false
     private var timer: Timer?
@@ -66,39 +71,57 @@ final class EditorDocument: ObservableObject {
 
     var isComputing: Bool { peaksProgress < 1 }
 
-    /// Crêtes par pixel et par canal pour la zone visible.
-    func columns(width: Int) -> [[(Float, Float)]] {
-        var out = [[(Float, Float)]](repeating: [], count: laneCount)
-        guard width > 0 else { return out }
+    /// Amplitude (0…1, max des canaux) de `count` colonnes de `perColumn` trames à partir de `start`.
+    func columns(count: Int, start: Int64, perColumn: Double) -> [Float] {
+        var out = [Float](repeating: 0, count: max(count, 0))
+        guard count > 0, perColumn > 0 else { return out }
         let clips = model.clips
         var starts: [Int64] = [], pos: Int64 = 0
         for c in clips { starts.append(pos); pos += c.length }
         var ci = 0
-        for px in 0..<width {
-            let s = scroll + Int64(Double(px) * fpp)
-            if s >= pos { for l in 0..<laneCount { out[l].append((0, 0)) }; continue }
+        for i in 0..<count {
+            let s = start + Int64(Double(i) * perColumn)
+            if s >= pos { break }
+            if s < 0 { continue }
             while ci + 1 < clips.count && starts[ci + 1] <= s { ci += 1 }
             while ci > 0 && starts[ci] > s { ci -= 1 }
             let c = clips[ci]
             let a = c.start + (s - starts[ci])
-            let b = min(c.end, a + max(1, Int64(fpp)))
+            let b = min(c.end, a + max(1, Int64(perColumn)))
+            var amp: Float = 0
             for l in 0..<laneCount {
-                out[l].append(peaks[c.source]?.minMax(channel: l, from: a, to: b) ?? (0, 0))
+                let m = peaks[c.source]?.minMax(channel: l, from: a, to: b) ?? (0, 0)
+                amp = max(amp, abs(m.0), abs(m.1))
             }
+            out[i] = amp
         }
         return out
     }
 
     // MARK: - Zoom / défilement
 
-    private var maxFPP: Double { max(1, Double(total) / Double(max(viewWidth, 1))) }
-    func fit() { fpp = maxFPP; scroll = 0; userZoomed = false; redraw.send() }
+    var maxFPP: Double { max(1, Double(total) / Double(max(viewWidth, 1))) }
+    static let minFPP = 4.0
+    func fit() { fpp = maxFPP; scroll = 0; userZoomed = false; syncZoom(); redraw.send() }
+    private func syncZoom() {
+        let r = log(fpp / maxFPP) / log(Self.minFPP / maxFPP)
+        zoomState.level = r.isFinite ? min(max(r, 0), 1) : 0
+    }
+    /// 0 = tout le fichier, 1 = zoom maximal (échelle logarithmique).
+    func setZoomLevel(_ l: Double) {
+        userZoomed = l > 0.001
+        let anchor = Double(scroll) + Double(viewWidth) / 2 * fpp
+        fpp = maxFPP * pow(Self.minFPP / maxFPP, l)
+        scroll = Int64(anchor - Double(viewWidth) / 2 * fpp)
+        clampScroll(); redraw.send()
+    }
+    func scrollTo(centerFrame f: Int64) { scroll = f - visibleFrames / 2; clampScroll(); redraw.send() }
     func zoom(factor: Double, anchorX: CGFloat) {
         userZoomed = true
         let anchor = Double(scroll) + Double(anchorX) * fpp
-        fpp = min(max(fpp * factor, 4), maxFPP)
+        fpp = min(max(fpp * factor, Self.minFPP), maxFPP)
         scroll = Int64(anchor - Double(anchorX) * fpp)
-        clampScroll(); redraw.send()
+        clampScroll(); syncZoom(); redraw.send()
     }
     func pan(byPixels dx: CGFloat) { scroll -= Int64(Double(dx) * fpp); clampScroll(); redraw.send() }
     private func clampScroll() {

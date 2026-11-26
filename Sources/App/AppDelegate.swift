@@ -24,7 +24,7 @@ import MSoundShared
         }))
         host.sizingOptions = []
         window.contentView = host
-        window.contentMinSize = NSSize(width: 1200, height: 620)
+        window.contentMinSize = NSSize(width: 1280, height: 620)
         window.delegate = self
         window.center()
     }

@@ -10,6 +10,66 @@ struct WaveformRepresentable: NSViewRepresentable {
     func updateNSView(_ v: WaveformView, context: Context) { v.needsDisplay = true }
 }
 
+struct OverviewRepresentable: NSViewRepresentable {
+    let doc: EditorDocument
+    func makeNSView(context: Context) -> OverviewView { OverviewView(doc: doc) }
+    func updateNSView(_ v: OverviewView, context: Context) { v.needsDisplay = true }
+}
+
+/// Bouton d'outil façon Fission : icône avec sa légende dessous.
+struct ToolButton: View {
+    let symbol: String, title: String, enabled: Bool, action: () -> Void
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 4) {
+                Image(systemName: symbol).font(.system(size: 15, weight: .medium)).frame(height: 18)
+                Text(title).font(.system(size: 10)).lineLimit(1)
+            }.frame(width: 62, height: 46)
+        }.buttonStyle(FlatButton()).disabled(!enabled).opacity(enabled ? 1 : 0.4).help(title)
+    }
+}
+
+struct ZoomSlider: View {
+    @ObservedObject var zoom: ZoomState
+    let doc: EditorDocument
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "minus.magnifyingglass").foregroundColor(Theme.text2)
+            Slider(value: Binding(get: { zoom.level }, set: { doc.setZoomLevel($0) }), in: 0...1).frame(width: 64).tint(Theme.accent)
+            Image(systemName: "plus.magnifyingglass").foregroundColor(Theme.text2)
+        }.font(.system(size: 12))
+    }
+}
+
+struct BottomTransport: View {
+    @ObservedObject var transport: Transport
+    @ObservedObject var doc: EditorDocument
+    var body: some View {
+        let rate = doc.rate
+        let remaining = (doc.selection?.upperBound ?? doc.total) - transport.playhead
+        HStack(spacing: 6) {
+            ZoomSlider(zoom: doc.zoomState, doc: doc).frame(width: 130, alignment: .leading)
+            Spacer()
+            Text(timeString(transport.playhead, rate: rate)).font(.system(size: 13, weight: .semibold, design: .monospaced)).foregroundColor(Theme.text)
+                .frame(width: 88, alignment: .trailing)
+            IconButton(symbol: "backward.end.fill", help: Loc.t("toStart"), enabled: true) { doc.seek(to: 0) }
+            Button { doc.togglePlay() } label: {
+                Image(systemName: transport.isPlaying ? "pause.fill" : "play.fill").font(.system(size: 14, weight: .medium)).frame(width: 40, height: 28)
+            }.buttonStyle(FlatButton(primary: true)).help(Loc.t("playPause"))
+            IconButton(symbol: "stop.fill", help: "Stop", enabled: true) { doc.stop() }
+            IconButton(symbol: "forward.end.fill", help: Loc.t("toEnd"), enabled: true) { doc.seek(to: doc.total) }
+            Text("−" + timeString(max(0, remaining), rate: rate)).font(.system(size: 13, weight: .semibold, design: .monospaced)).foregroundColor(Theme.text2)
+                .frame(width: 88, alignment: .leading)
+            Spacer()
+            HStack(spacing: 8) {
+                Image(systemName: "speaker.fill").foregroundColor(Theme.text2)
+                Slider(value: Binding(get: { Double(doc.volume) }, set: { doc.volume = Float($0) }), in: 0...1).frame(width: 64).tint(Theme.accent)
+                Image(systemName: "speaker.wave.3.fill").foregroundColor(Theme.text2)
+            }.font(.system(size: 12)).frame(width: 130, alignment: .trailing)
+        }
+    }
+}
+
 func timeString(_ frames: Int64, rate: Double, ms: Bool = true) -> String {
     let t = max(0, Double(frames) / max(rate, 1))
     let h = Int(t) / 3600, m = (Int(t) % 3600) / 60, s = Int(t) % 60
@@ -87,26 +147,30 @@ struct EditorView: View {
     var body: some View {
         let _ = doc.revision
         VStack(spacing: 0) {
-            // Barre du haut
-            HStack(spacing: 12) {
-                (Text("m").foregroundColor(Theme.brand) + Text("SOUND").foregroundColor(Theme.text)).font(.system(size: 15, weight: .bold))
-                Text("\(doc.url.lastPathComponent) · \(infoLine)").font(.system(size: 12)).foregroundColor(Theme.text2).lineLimit(1)
-                Spacer()
-                TransportBar(transport: doc.transport, doc: doc)
-            }.padding(.leading, 84).padding(.trailing, 28).frame(height: 56)
+            // Barre d'outils (façon Fission) : légendes sous les icônes ; nom du fichier à droite
+            HStack(spacing: 6) {
+                toolbar
+                Spacer(minLength: 16)
+                VStack(alignment: .trailing, spacing: 2) {
+                    (Text("m").foregroundColor(Theme.brand) + Text("SOUND").foregroundColor(Theme.text)).font(.system(size: 13, weight: .bold))
+                    Text(doc.url.lastPathComponent).font(.system(size: 12, weight: .semibold)).foregroundColor(Theme.text).lineLimit(1)
+                    Text(infoLine).font(.system(size: 11)).foregroundColor(Theme.text2).lineLimit(1)
+                }
+            }.padding(.leading, 84).padding(.trailing, 28).frame(height: 66)
 
             HStack(alignment: .top, spacing: 24) {
                 sidebar.frame(width: 240)
                 VStack(spacing: 12) {
-                    toolbar
+                    OverviewRepresentable(doc: doc).frame(height: 56)
                     WaveformRepresentable(doc: doc).frame(minHeight: 200)
                     statusLine
-                }.frame(maxWidth: .infinity, maxHeight: .infinity)
+                    BottomTransport(transport: doc.transport, doc: doc)
+                }.frame(minWidth: 0, maxWidth: .infinity, maxHeight: .infinity)
                 inspector.frame(width: 260)
-            }.padding(.horizontal, 28).padding(.vertical, 8).frame(maxHeight: .infinity)
+            }.padding(.horizontal, 28).padding(.top, 4).padding(.bottom, 16).frame(maxHeight: .infinity)
             exportBar
         }
-        .frame(minWidth: 1200, minHeight: 620)
+        .frame(minWidth: 1280, minHeight: 620)
         .background(Theme.bg)
         .overlay {
             if dropping {
@@ -131,22 +195,19 @@ struct EditorView: View {
     // MARK: Zones
     private var toolbar: some View {
         let hasSel = doc.selection != nil
-        return HStack(spacing: 4) {
-            IconButton(symbol: "arrow.uturn.backward", help: Loc.t("undo"), enabled: doc.canUndo) { doc.undo() }
-            IconButton(symbol: "arrow.uturn.forward", help: Loc.t("redo"), enabled: doc.canRedo) { doc.redo() }
-            Divider().frame(height: 18).padding(.horizontal, 4)
-            IconButton(symbol: "scissors", help: Loc.t("cut"), enabled: hasSel) { doc.cut() }
-            IconButton(symbol: "doc.on.doc", help: Loc.t("copy"), enabled: hasSel) { doc.copySel() }
-            IconButton(symbol: "doc.on.clipboard", help: Loc.t("paste"), enabled: !EditorDocument.clipboard.isEmpty) { doc.paste() }
-            IconButton(symbol: "trash", help: Loc.t("delete"), enabled: hasSel) { doc.deleteSel() }
-            IconButton(symbol: "crop", help: Loc.t("keep"), enabled: hasSel) { doc.keepSel() }
-            Divider().frame(height: 18).padding(.horizontal, 4)
-            IconButton(symbol: "flag", help: Loc.t("marker") + " (M)", enabled: true) { doc.addMarker() }
-            IconButton(symbol: "plus.rectangle.on.rectangle", help: Loc.t("merge"), enabled: true) { pickAndAppend() }
-            Spacer()
-            IconButton(symbol: "minus.magnifyingglass", help: Loc.t("zoomOut"), enabled: true) { doc.zoom(factor: 2, anchorX: doc.viewWidth / 2) }
-            IconButton(symbol: "plus.magnifyingglass", help: Loc.t("zoomIn"), enabled: true) { doc.zoom(factor: 0.5, anchorX: doc.viewWidth / 2) }
-            IconButton(symbol: "arrow.left.and.right", help: Loc.t("fit"), enabled: true) { doc.fit() }
+        return HStack(spacing: 6) {
+            ToolButton(symbol: "arrow.uturn.backward", title: Loc.t("undo"), enabled: doc.canUndo) { doc.undo() }
+            ToolButton(symbol: "arrow.uturn.forward", title: Loc.t("redo"), enabled: doc.canRedo) { doc.redo() }
+            Divider().frame(height: 30).padding(.horizontal, 6)
+            ToolButton(symbol: "scissors", title: Loc.t("cut"), enabled: hasSel) { doc.cut() }
+            ToolButton(symbol: "doc.on.doc", title: Loc.t("copy"), enabled: hasSel) { doc.copySel() }
+            ToolButton(symbol: "doc.on.clipboard", title: Loc.t("paste"), enabled: !EditorDocument.clipboard.isEmpty) { doc.paste() }
+            ToolButton(symbol: "trash", title: Loc.t("delete"), enabled: hasSel) { doc.deleteSel() }
+            ToolButton(symbol: "crop", title: Loc.t("keepShort"), enabled: hasSel) { doc.keepSel() }
+            Divider().frame(height: 30).padding(.horizontal, 6)
+            ToolButton(symbol: "flag", title: Loc.t("markerShort"), enabled: true) { doc.addMarker() }
+            ToolButton(symbol: "plus.rectangle.on.rectangle", title: Loc.t("mergeShort"), enabled: true) { pickAndAppend() }
+            ToolButton(symbol: "arrow.left.and.right", title: Loc.t("fit"), enabled: true) { doc.fit() }
         }
     }
 
