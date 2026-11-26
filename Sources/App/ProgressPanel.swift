@@ -71,6 +71,7 @@ struct ProgressRowView: View {
         case .done: return Loc.t("done")
         case .failed: return Loc.t("failed")
         case .cancelled: return Loc.t("cancelled")
+        case .skipped: return Loc.t("sameFormat")
         }
     }
     private var statusColor: Color {

@@ -41,8 +41,8 @@ public struct Converter {
         defer { ExtAudioFileDispose(src) }
 
         let info = try Converter.info(of: source)
-        if source.pathExtension.lowercased() == format.fileExtension, format.isLossless,
-           format != .alac, options.range == nil, options.sampleRate == nil {
+        if source.pathExtension.lowercased() == format.fileExtension,
+           format != .alac, format != .m4a, options.range == nil, options.sampleRate == nil {
             throw ConvertError.sameFormat
         }
 

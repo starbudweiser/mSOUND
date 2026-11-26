@@ -5,7 +5,7 @@ import MSoundShared
 
 @MainActor
 final class ProgressModel: ObservableObject {
-    enum State: Equatable { case waiting, running, done(URL), failed(String), cancelled }
+    enum State: Equatable { case waiting, running, done(URL), failed(String), cancelled, skipped }
 
     struct Row: Identifiable {
         let id: UUID
@@ -20,7 +20,7 @@ final class ProgressModel: ObservableObject {
     private var tasks: [Task<Void, Never>] = []
     var onAllFinished: (() -> Void)?
 
-    var finished: Int { rows.filter { if case .waiting = $0.state { return false }; if case .running = $0.state { return false }; return true }.count }
+    var finished: Int { rows.filter { $0.state != .waiting && $0.state != .running }.count }
     var isRunning: Bool { rows.contains { $0.state == .waiting || $0.state == .running } }
     var hasFailure: Bool { rows.contains { if case .failed = $0.state { return true }; return false } }
     var outputs: [URL] { rows.compactMap { if case .done(let u) = $0.state { return u }; return nil } }
@@ -59,7 +59,7 @@ final class ProgressModel: ObservableObject {
             }
         case .failed(let j, let e):
             if let i = idx(j), rows[i].state != .cancelled {
-                rows[i].state = e == .cancelled ? .cancelled : .failed(e == .sameFormat ? Loc.t("sameFormat") : (e.errorDescription ?? ""))
+                rows[i].state = e == .cancelled ? .cancelled : e == .sameFormat ? .skipped : .failed(e.errorDescription ?? "")
             }
         }
     }

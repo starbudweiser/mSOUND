@@ -65,7 +65,13 @@ SIGN_NO_DEEP=1 "$TOOLS/sign_app.sh" "$APP"
 pkill -x mSOUND 2>/dev/null || true
 rm -rf "$DEST/$NAME.app"; mkdir -p "$DEST"; cp -R "$APP" "$DEST/$NAME.app"
 # L'extension Finder : activée pour la version installée, ignorée pour la version de développement (évite les doublons de menu).
-pluginkit -a "$DEST/$NAME.app/Contents/PlugIns/mSOUNDFinder.appex" 2>/dev/null || true
-if [ -n "${DEV:-}" ]; then pluginkit -e ignore -i "$ID.finder" 2>/dev/null || true
-else pluginkit -e use -i "$ID.finder" 2>/dev/null || true; killall Finder 2>/dev/null || true; fi
+EXTP="$DEST/$NAME.app/Contents/PlugIns/mSOUNDFinder.appex"
+# L'enregistrement par pluginkit est asynchrone après la copie : on réessaie jusqu'à ce que l'extension soit connue.
+for i in 1 2 3 4 5 6 7 8 9 10; do
+  pluginkit -a "$EXTP" 2>/dev/null || true
+  if [ -n "${DEV:-}" ]; then pluginkit -e ignore -i "$ID.finder" 2>/dev/null || true; else pluginkit -e use -i "$ID.finder" 2>/dev/null || true; fi
+  pluginkit -m -i "$ID.finder" 2>/dev/null | grep -q "$ID.finder" && break
+  sleep 1
+done
+[ -n "${DEV:-}" ] || killall Finder 2>/dev/null || true
 echo "✓ $DEST/$NAME.app"
