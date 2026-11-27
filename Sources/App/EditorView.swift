@@ -143,7 +143,7 @@ struct EditorView: View {
     @AppStorage("inspectorVisible") private var inspectorVisible = false
 
     private var infoLine: String {
-        let ch = doc.info.channels == 1 ? "mono" : doc.info.channels == 2 ? "stéréo" : "\(doc.info.channels) canaux"
+        let ch = doc.info.channels == 1 ? Loc.t("chMono") : doc.info.channels == 2 ? Loc.t("chStereo") : Loc.t("chMany", doc.info.channels)
         return "\(String(format: "%g", doc.info.sampleRate / 1000)) kHz · \(doc.info.bitDepth) bits · \(ch) · \(timeString(doc.total, rate: doc.rate, ms: false))"
     }
 
@@ -330,7 +330,7 @@ struct EditorView: View {
     // MARK: Utilitaires
     private func fileSize() -> String {
         let b = (try? FileManager.default.attributesOfItem(atPath: doc.url.path)[.size] as? Int) ?? 0
-        return String(format: "%.1f Mo", Double(b) / 1_048_576)
+        return Loc.size(b)
     }
     private func pickAndOpen() {
         let p = NSOpenPanel(); p.allowedContentTypes = [.audio]; p.allowsMultipleSelection = true

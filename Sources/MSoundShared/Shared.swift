@@ -199,10 +199,18 @@ public enum Loc {
         "playPause": ["fr": "Lecture / Pause", "en": "Play / Pause", "es": "Reproducir / Pausa", "it": "Riproduci / Pausa"],
         "toStart": ["fr": "Aller au début", "en": "Go to start", "es": "Ir al inicio", "it": "Vai all'inizio"],
         "toEnd": ["fr": "Aller à la fin", "en": "Go to end", "es": "Ir al final", "it": "Vai alla fine"],
+        "chMono": ["fr": "mono", "en": "mono", "es": "mono", "it": "mono"],
+        "chStereo": ["fr": "stéréo", "en": "stereo", "es": "estéreo", "it": "stereo"],
+        "chMany": ["fr": "%d canaux", "en": "%d channels", "es": "%d canales", "it": "%d canali"],
         "openFailed": ["fr": "Impossible d'ouvrir ce fichier audio.", "en": "Cannot open this audio file.", "es": "No se puede abrir este archivo de audio.", "it": "Impossibile aprire questo file audio."],
     ]
 
     public static func t(_ key: String) -> String { table[key]?[lang] ?? table[key]?["en"] ?? key }
+    /// Taille de fichier dans l'unité de la langue (Mo en français, MB en anglais…).
+    public static func size(_ bytes: Int) -> String {
+        let f = ByteCountFormatter(); f.countStyle = .file; f.allowsNonnumericFormatting = false
+        return f.string(fromByteCount: Int64(bytes))
+    }
     public static func t(_ key: String, _ args: CVarArg...) -> String { String(format: t(key), arguments: args) }
 }
 

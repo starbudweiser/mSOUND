@@ -132,7 +132,6 @@ final class ProgressModel: ObservableObject {
     private func checkFinished() { if !isRunning { onAllFinished?() } }
 
     private static func mb(_ b: Int) -> String {
-        let v = Double(b) / 1_048_576
-        return v >= 10 ? String(format: "%.0f Mo", v) : String(format: "%.1f Mo", v)
+        Loc.size(b)
     }
 }
