@@ -192,14 +192,16 @@ struct EditorView: View {
     // MARK: Zones
 
     /// Zone de la barre de titre : nom du fichier au centre, export à droite.
+    /// Barre de titre sur une seule ligne : nom de l'appli, fichier et sa fiche technique, export à droite.
     private var titleBar: some View {
-        ZStack {
-            VStack(spacing: 2) {
+        HStack(spacing: 16) {
+            brandName(15)
+            HStack(spacing: 10) {
                 Text(doc.url.lastPathComponent).font(.system(size: 13, weight: .semibold)).foregroundColor(Theme.text)
-                    .lineLimit(1).truncationMode(.middle)
-                Text(infoLine).font(.system(size: 11)).foregroundColor(Theme.text2).lineLimit(1)
-            }.frame(maxWidth: 320)
-            HStack { Spacer(); exportCluster }
+                    .lineLimit(1).truncationMode(.middle).layoutPriority(1)
+                Text(infoLine).font(.system(size: 11.5)).foregroundColor(Theme.text2).lineLimit(1).fixedSize()
+            }.frame(maxWidth: .infinity, alignment: .center)
+            exportCluster
         }.padding(.leading, 84).padding(.trailing, 28).frame(height: 56)
     }
 
