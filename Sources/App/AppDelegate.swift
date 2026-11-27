@@ -18,6 +18,7 @@ import MSoundShared
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
         window.isReleasedWhenClosed = false
+        window.collectionBehavior = [.moveToActiveSpace]
         // La taille de la fenêtre est celle de l'utilisateur, jamais dictée par le contenu SwiftUI (sinon elle peut s'écraser).
         let host = NSHostingView(rootView: EditorRoot(session: session))
         host.sizingOptions = []
@@ -40,7 +41,7 @@ import MSoundShared
                                          record: { MainActor.assumeIsolated { self.recordAction() } },
                                          settings: { MainActor.assumeIsolated { self.settingsWin.show() } }))
     }
-    private lazy var settingsWin = SecondaryWindow(size: NSSize(width: 520, height: 860), title: { Loc.t("settingsTitle") }) { NSHostingView(rootView: SettingsView()) }
+    private lazy var settingsWin = SecondaryWindow(size: NSSize(width: 540, height: 470), title: { Loc.t("settingsTitle") }) { NSHostingView(rootView: SettingsView()) }
 
     /// Dock et menu seulement quand une fenêtre (éditeur, réglages, à propos) est ouverte ; sinon agent discret.
     func updatePolicy() {
@@ -53,6 +54,7 @@ import MSoundShared
         NSApp.setActivationPolicy(.accessory)
         AppTheme.apply()
         MainMenu.install(target: self)
+        if let f = DemoMode.file { openEditors([f]); return }
         for w in [aboutWin, settingsWin, homeWin] { w.onVisibilityChange = { [weak self] in self?.updatePolicy() } }
         // Mise à jour automatique : une recherche par jour, installation dès que rien n'est en cours.
         Timer.scheduledTimer(withTimeInterval: 3600, repeats: true) { _ in MainActor.assumeIsolated { Updater.shared.tick() } }
@@ -119,8 +121,10 @@ import MSoundShared
         homeWin.close()
         editors.append(c)
         updatePolicy()
-        c.window.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
+        if DemoMode.isOn { c.window.setContentSize(NSSize(width: 1600, height: 880)); c.window.orderBack(nil); DemoMode.stage(first) } else {
+            c.window.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+        }
         if docs.count > 1 { session.open(docs.dropFirst().map { $0.url }); session.select(first) }
     }
 

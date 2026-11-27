@@ -74,16 +74,26 @@ struct ShortcutSettings: View {
         raw = l.map { $0.rawValue }.joined(separator: ",")
     }
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 10) {
             ForEach(0..<3, id: \.self) { i in
-                HStack {
-                    Text("\(i + 1)").font(.system(size: 12, weight: .semibold)).foregroundColor(Theme.text2).frame(width: 16)
-                    Picker("", selection: Binding(get: { slots[i] }, set: { set(i, $0) })) {
-                        ForEach(ShortcutAction.allCases, id: \.self) { a in Text(a.title).tag(a) }
-                    }.labelsHidden().frame(maxWidth: 260)
-                    Spacer()
+                HStack(spacing: 10) {
+                    Text("\(i + 1)").font(.system(size: 12, weight: .semibold)).foregroundColor(Theme.text2).frame(width: 14)
+                    Menu {
+                        ForEach(ShortcutAction.allCases, id: \.self) { a in
+                            Button { set(i, a) } label: { Label(a.title, systemImage: slots[i] == a ? "checkmark" : a.symbol) }
+                        }
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: slots[i].symbol).font(.system(size: 13, weight: .medium)).frame(width: 18)
+                            Text(slots[i].title).font(.system(size: 12.5, weight: .medium)).lineLimit(1)
+                            Spacer(minLength: 8)
+                            Image(systemName: "chevron.up.chevron.down").font(.system(size: 9, weight: .semibold)).foregroundColor(Theme.text2)
+                        }
+                        .foregroundColor(Theme.text).padding(.horizontal, 12).frame(height: 30).frame(maxWidth: .infinity)
+                        .background(Theme.ctl).clipShape(RoundedRectangle(cornerRadius: Theme.radius)).contentShape(Rectangle())
+                    }.menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden)
                 }
             }
-        }
+        }.frame(maxWidth: .infinity)
     }
 }

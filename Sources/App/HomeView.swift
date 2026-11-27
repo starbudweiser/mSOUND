@@ -11,7 +11,7 @@ struct HomeView: View {
     @ObservedObject private var rec = Recorder.shared
     var settings: () -> Void
     @State private var dropping = false
-    private var recents: [URL] { Array(NSDocumentController.shared.recentDocumentURLs.prefix(5)) }
+    private var recents: [URL] { Array(NSDocumentController.shared.recentDocumentURLs.prefix(3)) }
 
     var body: some View {
         VStack(spacing: 16) {
@@ -63,6 +63,7 @@ struct HomeView: View {
                 Button(Loc.t("settings"), action: settings).buttonStyle(FlatButton()).lineLimit(1).fixedSize()
             }
         }
+        .alert(rec.error ?? "", isPresented: Binding(get: { rec.error != nil }, set: { if !$0 { rec.error = nil } })) { Button("OK") {} }
         .padding(.horizontal, 28).padding(.top, 40).padding(.bottom, 24)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(Theme.bg)

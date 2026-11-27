@@ -17,7 +17,9 @@ import MSoundShared
     private var sink: Sink?
     private var url: URL?
     private var onFinished: ((URL) -> Void)?
-    private var starting = false
+    private var starting = false { didSet { if starting { startingSince = Date() } } }
+    private var startingSince = Date.distantPast
+    private var configObserver: NSObjectProtocol?
 
     /// Données partagées avec le fil audio.
     private final class Sink: @unchecked Sendable {
@@ -40,6 +42,8 @@ import MSoundShared
     }
 
     func start(onFinished: @escaping (URL) -> Void) {
+        // Un démarrage resté en attente (autorisation jamais répondue…) ne doit pas bloquer le bouton pour toujours.
+        if starting, Date().timeIntervalSince(startingSince) > 8 { starting = false }
         guard !isRecording, !starting else { return }
         starting = true; error = nil
         switch AVCaptureDevice.authorizationStatus(for: .audio) {
@@ -83,6 +87,15 @@ import MSoundShared
             engine.prepare()
             try engine.start()
             self.sink = sink; url = u; self.onFinished = onFinished
+            // Changement de périphérique d'entrée (casque branché, etc.) : l'enregistrement s'arrête en gardant ce qui existe.
+            configObserver = NotificationCenter.default.addObserver(forName: .AVAudioEngineConfigurationChange, object: engine, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated { self?.interrupted() }
+            }
+            // Garde-fou : si aucune donnée n'arrive du micro, on abandonne au lieu de rester bloqué sur 00:00.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self, weak sink] in
+                guard let self, self.isRecording, let sink, self.sink === sink, sink.frames == 0 else { return }
+                self.stop(save: false); self.error = Loc.t("recNoSignal")
+            }
             levels = [Float](repeating: -120, count: min(channels, 2)); peakHold = levels
             elapsed = 0; isRecording = true; starting = false
         } catch {
@@ -98,9 +111,17 @@ import MSoundShared
         elapsed = t
     }
 
+    private func interrupted() {
+        guard isRecording else { return }
+        let had = (sink?.frames ?? 0) > 0
+        stop(save: had)
+        if !had { error = Loc.t("recNoSignal") }
+    }
+
     /// Arrête l'enregistrement : `save` = vrai garde le fichier et le transmet ; faux l'efface.
     func stop(save: Bool) {
         guard isRecording else { return }
+        if let o = configObserver { NotificationCenter.default.removeObserver(o); configObserver = nil }
         engine.inputNode.removeTap(onBus: 0)
         engine.stop()
         let frames = sink?.frames ?? 0

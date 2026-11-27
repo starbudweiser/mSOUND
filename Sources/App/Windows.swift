@@ -34,6 +34,7 @@ enum AppTheme {
                              backing: .buffered, defer: false)
             w.titlebarAppearsTransparent = true; w.titleVisibility = .hidden
             w.isReleasedWhenClosed = false
+            w.collectionBehavior = [.moveToActiveSpace]      // la fenêtre vient sur le bureau actif au lieu de rester sur un autre
             w.standardWindowButton(.miniaturizeButton)?.isHidden = true
             w.standardWindowButton(.zoomButton)?.isHidden = true
             let host = NSHostingView(rootView: AnyView(NSViewWrapper(view: make())))
@@ -120,53 +121,80 @@ struct SettingsView: View {
         }
     }
 
+    @State private var tab = 0
+    private let tabs = ["tabGeneral", "tabFinder", "tabShortcuts", "updTitle"]
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            brandName(15).padding(.top, 6)
-            Card(title: Loc.t("setFinder")) {
-                LazyVGrid(columns: [GridItem(.flexible(), alignment: .leading), GridItem(.flexible(), alignment: .leading)], spacing: 8) {
-                    ForEach(Prefs.defaultMenuFormats, id: \.self) { f in
-                        Toggle(f == "edit" ? Loc.t("editWith") : Prefs.displayName(f), isOn: Binding(get: { formats.contains(f) }, set: { _ in toggle(f) }))
-                            .toggleStyle(.checkbox).font(.system(size: 12.5)).foregroundColor(Theme.text)
-                    }
-                }.frame(maxWidth: .infinity, alignment: .leading)
-                Text(Loc.t("setFinderHint")).font(.system(size: 11.5)).foregroundColor(Theme.text2)
-                    .frame(maxWidth: .infinity, alignment: .leading).fixedSize(horizontal: false, vertical: true).padding(.top, 4)
+            brandName(15).padding(.top, 4)
+            // Onglets : chaque page tient sans défilement
+            HStack(spacing: 4) {
+                ForEach(tabs.indices, id: \.self) { i in Button(Loc.t(tabs[i])) { tab = i }.buttonStyle(ChipStyle(on: tab == i)).lineLimit(1).fixedSize() }
+                Spacer()
             }
-            Card(title: Loc.t("setShortcuts")) { ShortcutSettings() }
-            Card(title: Loc.t("recFolder")) { RecordFolderSetting() }
-            Card(title: Loc.t("setQuality")) {
-                HStack(spacing: 4) {
-                    ForEach([128, 192, 256, 320], id: \.self) { k in Button("\(k) kb/s") { bitrate = k }.buttonStyle(ChipStyle(on: bitrate == k)) }
-                    Spacer()
+            Group {
+                switch tab {
+                case 0: general
+                case 1: finder
+                case 2: Card(title: Loc.t("setShortcuts")) { ShortcutSettings() }
+                default: updates
                 }
             }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 28).padding(.top, 36).padding(.bottom, 28)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .background(Theme.bg)
+    }
+
+    private var general: some View {
+        VStack(alignment: .leading, spacing: 16) {
             Card(title: Loc.t("setTheme")) {
                 HStack(spacing: 4) {
                     ForEach([("system", "themeSystem"), ("dark", "themeDark"), ("sand", "themeSand")], id: \.0) { t in
                         Button(Loc.t(t.1)) { theme = t.0; AppTheme.apply() }.buttonStyle(ChipStyle(on: theme == t.0))
                     }
                     Spacer()
-                }
+                }.frame(maxWidth: .infinity)
             }
-            Card(title: Loc.t("updTitle")) {
-                Toggle(Loc.t("updAuto"), isOn: $auto).toggleStyle(.checkbox).font(.system(size: 12.5)).foregroundColor(Theme.text)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                HStack(spacing: 8) {
-                    Button(Loc.t("updCheck")) { Task { await updater.check() } }.buttonStyle(FlatButton())
-                        .disabled(updater.state == .checking || updater.state == .downloading)
-                    if case .available(let v) = updater.state {
-                        Button(Loc.t("updInstall", v)) { Task { await updater.install() } }.buttonStyle(FlatButton(primary: true)).disabled(Updater.busy)
-                    }
+            Card(title: Loc.t("setQuality")) {
+                HStack(spacing: 4) {
+                    ForEach([128, 192, 256, 320], id: \.self) { k in Button("\(k) kb/s") { bitrate = k }.buttonStyle(ChipStyle(on: bitrate == k)) }
                     Spacer()
-                }.padding(.top, 2)
-                Text(updStatus + (Updater.busy && updater.state != .idle && updater.state != .upToDate ? "\n" + Loc.t("updBusy") : ""))
-                    .font(.system(size: 11.5)).foregroundColor(Theme.text2).frame(maxWidth: .infinity, alignment: .leading)
+                }.frame(maxWidth: .infinity)
             }
+            Card(title: Loc.t("recFolder")) { RecordFolderSetting() }
         }
-        .padding(.horizontal, 28).padding(.top, 36).padding(.bottom, 28)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .background(Theme.bg)
+    }
+
+    private var finder: some View {
+        Card(title: Loc.t("setFinder")) {
+            LazyVGrid(columns: [GridItem(.flexible(), alignment: .leading), GridItem(.flexible(), alignment: .leading)], spacing: 10) {
+                ForEach(Prefs.defaultMenuFormats, id: \.self) { f in
+                    Toggle(f == "edit" ? Loc.t("editWith") : Prefs.displayName(f), isOn: Binding(get: { formats.contains(f) }, set: { _ in toggle(f) }))
+                        .toggleStyle(.checkbox).font(.system(size: 12.5)).foregroundColor(Theme.text)
+                }
+            }.frame(maxWidth: .infinity, alignment: .leading)
+            Text(Loc.t("setFinderHint")).font(.system(size: 11.5)).foregroundColor(Theme.text2)
+                .frame(maxWidth: .infinity, alignment: .leading).fixedSize(horizontal: false, vertical: true).padding(.top, 6)
+        }
+    }
+
+    private var updates: some View {
+        Card(title: Loc.t("updTitle")) {
+            Toggle(Loc.t("updAuto"), isOn: $auto).toggleStyle(.checkbox).font(.system(size: 12.5)).foregroundColor(Theme.text)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            HStack(spacing: 8) {
+                Button(Loc.t("updCheck")) { Task { await updater.check() } }.buttonStyle(FlatButton())
+                    .disabled(updater.state == .checking || updater.state == .downloading)
+                if case .available(let v) = updater.state {
+                    Button(Loc.t("updInstall", v)) { Task { await updater.install() } }.buttonStyle(FlatButton(primary: true)).disabled(Updater.busy)
+                }
+                Spacer()
+            }.padding(.top, 2)
+            Text(updStatus + (Updater.busy && updater.state != .idle && updater.state != .upToDate ? "\n" + Loc.t("updBusy") : ""))
+                .font(.system(size: 11.5)).foregroundColor(Theme.text2).frame(maxWidth: .infinity, alignment: .leading)
+        }
     }
 }
 
