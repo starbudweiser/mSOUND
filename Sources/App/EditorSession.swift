@@ -98,5 +98,6 @@ struct EditorRoot: View {
     @ObservedObject var session: EditorSession
     var body: some View {
         EditorView(doc: session.active, session: session).id(ObjectIdentifier(session.active))
+            .ignoresSafeArea(.container, edges: .top)          // la rangée du haut remonte sur la ligne des boutons de fenêtre
     }
 }

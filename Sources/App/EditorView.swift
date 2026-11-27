@@ -202,7 +202,7 @@ struct EditorView: View {
                 Text(infoLine).font(.system(size: 11.5)).foregroundColor(Theme.text2).lineLimit(1).fixedSize()
             }.frame(maxWidth: .infinity, alignment: .center)
             exportCluster
-        }.padding(.leading, 84).padding(.trailing, 28).frame(height: 56)
+        }.padding(.leading, 104).padding(.trailing, 28).frame(height: 52)
     }
 
     private var exportCluster: some View {

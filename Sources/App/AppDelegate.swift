@@ -19,6 +19,10 @@ import MSoundShared
         window.titleVisibility = .hidden
         window.isReleasedWhenClosed = false
         window.collectionBehavior = [.moveToActiveSpace]
+        // Règle Socle « Haut de la fenêtre » : un NSToolbar vide agrandit la barre de titre et descend les boutons de fenêtre ;
+        // la rangée du haut (52 px) se centre sur leur axe.
+        let bar = NSToolbar(identifier: "msound.editor.toolbar"); bar.showsBaselineSeparator = false
+        window.toolbar = bar; window.toolbarStyle = .unified; window.titlebarSeparatorStyle = .none
         // La taille de la fenêtre est celle de l'utilisateur, jamais dictée par le contenu SwiftUI (sinon elle peut s'écraser).
         let host = NSHostingView(rootView: EditorRoot(session: session))
         host.sizingOptions = []
