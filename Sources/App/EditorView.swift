@@ -120,7 +120,7 @@ struct Card<Content: View>: View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title.uppercased()).font(.system(size: 10.5, weight: .semibold)).tracking(0.5).foregroundColor(Theme.text2)
             VStack(spacing: 6) { content }.frame(maxHeight: fill ? .infinity : nil, alignment: .top)
-                .padding(.horizontal, 24).padding(.vertical, 20).frame(maxWidth: .infinity)
+                .padding(24).frame(maxWidth: .infinity)
                 .background(Theme.card).clipShape(RoundedRectangle(cornerRadius: Theme.radius))
         }
     }
@@ -151,7 +151,7 @@ struct EditorView: View {
         let _ = doc.revision
         VStack(spacing: 0) {
             titleBar
-                .alert(rec.error ?? "", isPresented: Binding(get: { rec.error != nil }, set: { if !$0 { rec.error = nil } })) { Button("OK") {} }
+                .appAlert($rec.error)
             if session.docs.count > 1 { TimelineTabs(session: session) }
             toolRow
             HStack(alignment: .top, spacing: 16) {
@@ -186,7 +186,7 @@ struct EditorView: View {
             }
             return true
         }
-        .alert(doc.message ?? "", isPresented: Binding(get: { doc.message != nil }, set: { if !$0 { doc.message = nil } })) { Button("OK") {} }
+        .appAlert($doc.message)
     }
 
     // MARK: Zones

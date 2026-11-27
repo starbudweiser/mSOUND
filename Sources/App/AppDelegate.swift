@@ -38,14 +38,14 @@ import MSoundShared
 @MainActor final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     private var editors: [EditorWindowController] = []
     var hasEditors: Bool { !editors.isEmpty }
-    private lazy var aboutWin = SecondaryWindow(size: NSSize(width: 356, height: 470), title: { Loc.t("about") }) { NSHostingView(rootView: AboutView()) }
-    private lazy var homeWin = SecondaryWindow(size: NSSize(width: 560, height: 450), title: { "mSOUND" }) { [unowned self] in
+    private lazy var aboutWin = SecondaryWindow(width: 356, title: { Loc.t("about") }) { NSHostingView(rootView: AboutView()) }
+    private lazy var homeWin = SecondaryWindow(width: 560, title: { "mSOUND" }) { [unowned self] in
         NSHostingView(rootView: HomeView(open: { urls in MainActor.assumeIsolated { urls.forEach(self.openEditor) } },
                                          openPanel: { MainActor.assumeIsolated { self.openAction() } },
                                          record: { MainActor.assumeIsolated { self.recordAction() } },
                                          settings: { MainActor.assumeIsolated { self.settingsWin.show() } }))
     }
-    private lazy var settingsWin = SecondaryWindow(size: NSSize(width: 540, height: 470), title: { Loc.t("settingsTitle") }) { NSHostingView(rootView: SettingsView()) }
+    private lazy var settingsWin = SecondaryWindow(width: 992, title: { Loc.t("settingsTitle") }) { NSHostingView(rootView: SettingsView()) }
 
     /// Dock et menu seulement quand une fenêtre (éditeur, réglages, à propos) est ouverte ; sinon agent discret.
     func updatePolicy() {
@@ -116,7 +116,7 @@ import MSoundShared
         var docs: [EditorDocument] = []
         for u in fresh {
             if let d = try? EditorDocument(url: u) { docs.append(d); NSDocumentController.shared.noteNewRecentDocumentURL(u) }
-            else { let a = NSAlert(); a.messageText = Loc.t("openFailed"); a.informativeText = u.lastPathComponent; a.runModal() }
+            else { AppAlert.show(Loc.t("openFailed"), info: u.lastPathComponent) }
         }
         guard let first = docs.first else { return }
         let session = EditorSession(first: first)

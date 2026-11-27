@@ -28,7 +28,7 @@ import MSoundShared
             do { let d = try EditorDocument(url: u); docs.append(d); select(d) } catch { failed.append(u) }
         }
         if let f = failed.first {
-            let a = NSAlert(); a.messageText = Loc.t("openFailed"); a.informativeText = f.lastPathComponent; a.runModal()
+            AppAlert.show(Loc.t("openFailed"), info: f.lastPathComponent)
         }
     }
 

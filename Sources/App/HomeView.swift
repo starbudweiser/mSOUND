@@ -56,16 +56,14 @@ struct HomeView: View {
                     }
                 }.frame(maxWidth: .infinity, alignment: .leading)
             }
-            Spacer(minLength: 0)
             HStack {
                 Text(Loc.t("homeHint")).font(.system(size: 11.5)).foregroundColor(Theme.text2).fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 12)
                 Button(Loc.t("settings"), action: settings).buttonStyle(FlatButton()).lineLimit(1).fixedSize()
             }
         }
-        .alert(rec.error ?? "", isPresented: Binding(get: { rec.error != nil }, set: { if !$0 { rec.error = nil } })) { Button("OK") {} }
-        .padding(.horizontal, 28).padding(.top, 40).padding(.bottom, 24)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .background(Theme.bg)
+        .appAlert($rec.error)
+        .padding(.horizontal, 28).padding(.top, 40).padding(.bottom, 28)
+        .frame(width: 560).background(Theme.bg).fixedSize(horizontal: false, vertical: true)
     }
 }

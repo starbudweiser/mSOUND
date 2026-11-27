@@ -3,6 +3,7 @@ import Foundation
 /// Textes de l'interface dans les 4 langues (fr, en, es, it). Autre langue système : anglais.
 public enum Loc {
     public static var lang: String = {
+        if let f = ProcessInfo.processInfo.environment["MSOUND_LANG"], ["fr", "en", "es", "it"].contains(f) { return f }   // essais
         for l in Locale.preferredLanguages {
             let c = String(l.prefix(2))
             if ["fr", "en", "es", "it"].contains(c) { return c }

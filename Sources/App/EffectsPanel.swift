@@ -27,10 +27,19 @@ struct EffectsPanel: View {
                 Button(Loc.t("fxApply"), action: apply).buttonStyle(FlatButton(primary: true)).lineLimit(1).fixedSize().padding(.leading, 4)
             }
             Text(desc).font(.system(size: 11.5)).foregroundColor(Theme.text2).fixedSize(horizontal: false, vertical: true)
-        }
-        .padding(.horizontal, 20).padding(.vertical, 12).frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.card).clipShape(RoundedRectangle(cornerRadius: Theme.radius))
+        }.frame(maxWidth: .infinity, alignment: .leading)
     }
+
+    /// Carte de groupe : 24 px de marge intérieure, rangées séparées par un filet.
+    private func group<Content: View>(_ title: String, @ViewBuilder _ content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title.uppercased()).font(.system(size: 10.5, weight: .semibold)).tracking(0.5).foregroundColor(Theme.text2)
+            VStack(alignment: .leading, spacing: 12) { content() }
+                .padding(24).frame(maxWidth: .infinity, alignment: .leading)
+                .background(Theme.card).clipShape(RoundedRectangle(cornerRadius: Theme.radius))
+        }
+    }
+    private var rule: some View { Rectangle().fill(Theme.ctl).frame(height: 1) }
 
     private func chip<T: Equatable>(_ label: String, _ value: T, _ sel: Binding<T>) -> some View {
         Button(label) { sel.wrappedValue = value }.buttonStyle(ChipStyle(on: sel.wrappedValue == value)).lineLimit(1).fixedSize()
@@ -42,7 +51,8 @@ struct EffectsPanel: View {
 
     var body: some View {
         let hasSel = doc.selection != nil
-        VStack(alignment: .leading, spacing: 8) {
+        let all = allTimelines && session.docs.count > 1
+        VStack(alignment: .leading, spacing: 16) {
             if session.docs.count > 1 {
                 HStack(spacing: 4) {
                     chip(Loc.t("scopeThis"), false, $allTimelines)
@@ -50,37 +60,48 @@ struct EffectsPanel: View {
                     Spacer()
                 }
             }
-            Text(allTimelines && session.docs.count > 1 ? Loc.t("fxScopeAll") : (hasSel ? Loc.t("fxScopeSel") : Loc.t("fxScopeAll")))
+            Text(all ? Loc.t("fxScopeAll") : (hasSel ? Loc.t("fxScopeSel") : Loc.t("fxScopeAll")))
                 .font(.system(size: 12, weight: .medium)).foregroundColor(Theme.text2)
-            header(Loc.t("fxRecipes"))
-            ForEach(Recipe.allCases, id: \.self) { r in
-                let (t, d) = recipeText(r)
-                row(t, d, apply: { run(r.steps, t) }) { EmptyView() }
+            group(Loc.t("fxRecipes")) {
+                ForEach(Array(Recipe.allCases.enumerated()), id: \.element) { i, r in
+                    if i > 0 { rule }
+                    let (t, d) = recipeText(r)
+                    row(t, d, apply: { run(r.steps, t) }) { EmptyView() }
+                }
             }
-            header(Loc.t("fxFilters"))
-            row(Loc.t("fDenoise"), Loc.t("fDenoiseD"), apply: { run([.denoise(strength)], Loc.t("fDenoise")) }) {
-                chip(Loc.t("sLight"), Strength.light, $strength); chip(Loc.t("sMedium"), Strength.medium, $strength); chip(Loc.t("sStrong"), Strength.strong, $strength)
+            group(Loc.t("fxFilters")) {
+                row(Loc.t("fDenoise"), Loc.t("fDenoiseD"), apply: { run([.denoise(strength)], Loc.t("fDenoise")) }) {
+                    chip(Loc.t("sLight"), Strength.light, $strength); chip(Loc.t("sMedium"), Strength.medium, $strength); chip(Loc.t("sStrong"), Strength.strong, $strength)
+                }
+                rule
+                row(Loc.t("fClean"), Loc.t("fCleanD"), apply: { run([.clean(highpassHz: 80)], Loc.t("fClean")) }) { EmptyView() }
+                rule
+                row(Loc.t("fEQ"), Loc.t("fEQD"), apply: { run([.eq(eq)], Loc.t("fEQ")) }) {
+                    chip(Loc.t("eqVoice"), EQPreset.voice, $eq); chip(Loc.t("eqWarm"), EQPreset.warm, $eq); chip(Loc.t("eqBright"), EQPreset.bright, $eq)
+                }
+                rule
+                row(Loc.t("fComp"), Loc.t("fCompD"), apply: { run([.compress(comp)], Loc.t("fComp")) }) {
+                    chip(Loc.t("cSoft"), CompPreset.soft, $comp); chip(Loc.t("cStudio"), CompPreset.studio, $comp); chip(Loc.t("cRadio"), CompPreset.radio, $comp)
+                }
+                rule
+                row(Loc.t("fLoud"), Loc.t("fLoudD"), apply: { run([.loudness(target)], Loc.t("fLoud")) }) {
+                    chip(Loc.t("lTV"), -23.0, $target); chip(Loc.t("lPod"), -16.0, $target); chip(Loc.t("lStream"), -14.0, $target)
+                }
             }
-            row(Loc.t("fClean"), Loc.t("fCleanD"), apply: { run([.clean(highpassHz: 80)], Loc.t("fClean")) }) { EmptyView() }
-            row(Loc.t("fEQ"), Loc.t("fEQD"), apply: { run([.eq(eq)], Loc.t("fEQ")) }) {
-                chip(Loc.t("eqVoice"), EQPreset.voice, $eq); chip(Loc.t("eqWarm"), EQPreset.warm, $eq); chip(Loc.t("eqBright"), EQPreset.bright, $eq)
+            if !all {
+                group(Loc.t("fxLevels")) {
+                    HStack(spacing: 6) {
+                        Button(Loc.t("normalize")) { close(); doc.normalize() }.buttonStyle(FlatButton())
+                        Button(Loc.t("fadeInShort")) { close(); doc.fadeIn() }.buttonStyle(FlatButton())
+                        Button(Loc.t("fadeOutShort")) { close(); doc.fadeOut() }.buttonStyle(FlatButton())
+                        Button("+3 dB") { close(); doc.gain(db: 3) }.buttonStyle(FlatButton())
+                        Button("−3 dB") { close(); doc.gain(db: -3) }.buttonStyle(FlatButton())
+                        Spacer(minLength: 0)
+                    }
+                }
             }
-            row(Loc.t("fComp"), Loc.t("fCompD"), apply: { run([.compress(comp)], Loc.t("fComp")) }) {
-                chip(Loc.t("cSoft"), CompPreset.soft, $comp); chip(Loc.t("cStudio"), CompPreset.studio, $comp); chip(Loc.t("cRadio"), CompPreset.radio, $comp)
-            }
-            row(Loc.t("fLoud"), Loc.t("fLoudD"), apply: { run([.loudness(target)], Loc.t("fLoud")) }) {
-                chip(Loc.t("lTV"), -23.0, $target); chip(Loc.t("lPod"), -16.0, $target); chip(Loc.t("lStream"), -14.0, $target)
-            }
-            if !(allTimelines && session.docs.count > 1) { header(Loc.t("fxLevels"))
-            HStack(spacing: 6) {
-                Button(Loc.t("normalize")) { close(); doc.normalize() }.buttonStyle(FlatButton())
-                Button(Loc.t("fadeInShort")) { close(); doc.fadeIn() }.buttonStyle(FlatButton())
-                Button(Loc.t("fadeOutShort")) { close(); doc.fadeOut() }.buttonStyle(FlatButton())
-                Button("+3 dB") { close(); doc.gain(db: 3) }.buttonStyle(FlatButton())
-                Button("−3 dB") { close(); doc.gain(db: -3) }.buttonStyle(FlatButton())
-            } }
         }
-        .padding(20).frame(width: 520).background(Theme.bg)
+        .padding(28).frame(width: 600).background(Theme.bg)
     }
 
     private func recipeText(_ r: Recipe) -> (String, String) {
