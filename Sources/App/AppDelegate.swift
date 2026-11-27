@@ -63,9 +63,11 @@ import MSoundShared
         // Mise à jour automatique : une recherche par jour, installation dès que rien n'est en cours.
         Timer.scheduledTimer(withTimeInterval: 3600, repeats: true) { _ in MainActor.assumeIsolated { Updater.shared.tick() } }
         DispatchQueue.main.asyncAfter(deadline: .now() + 15) { Updater.shared.tick() }
-        // Lancée à la main (Dock, Finder) sans fichier : on ouvre les réglages pour que l'appli ne reste pas invisible.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
-            guard let self, NSApp.isActive, self.editors.isEmpty, !ProgressPanelController.shared.model.isRunning else { return }
+        // Lancée à la main (Dock, Finder) sans fichier ni demande du Finder : la fenêtre d'accueil s'ouvre du premier coup.
+        // (Ne pas exiger que l'appli soit déjà active : macOS l'active après coup, d'où le second lancement qu'il fallait.)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) { [weak self] in
+            guard let self, !self.receivedOpen, self.editors.isEmpty, !self.homeWin.isVisible,
+                  !ProgressPanelController.shared.model.isRunning else { return }
             self.homeWin.show()
         }
     }
@@ -77,7 +79,9 @@ import MSoundShared
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
 
+    private var receivedOpen = false          // fichier ou adresse reçus au lancement : pas d'accueil
     func application(_ app: NSApplication, open urls: [URL]) {
+        receivedOpen = true
         let fileURLs = urls.filter { $0.isFileURL }
         if !fileURLs.isEmpty { openEditors(fileURLs) }
         for url in urls {
