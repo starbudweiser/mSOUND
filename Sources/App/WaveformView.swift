@@ -178,6 +178,23 @@ final class WaveformView: NSView {
         }
     }
 
+    // Bouton de la molette maintenu : on attrape la waveform et on la fait glisser à gauche ou à droite.
+    private var panX: CGFloat?
+    override func otherMouseDown(with e: NSEvent) {
+        guard e.buttonNumber == 2 else { super.otherMouseDown(with: e); return }
+        panX = convert(e.locationInWindow, from: nil).x
+        NSCursor.closedHand.push()
+    }
+    override func otherMouseDragged(with e: NSEvent) {
+        guard let last = panX else { super.otherMouseDragged(with: e); return }
+        let x = convert(e.locationInWindow, from: nil).x
+        doc.pan(byPixels: x - last); panX = x
+    }
+    override func otherMouseUp(with e: NSEvent) {
+        guard panX != nil else { super.otherMouseUp(with: e); return }
+        panX = nil; NSCursor.pop()
+    }
+
     override func scrollWheel(with e: NSEvent) {
         let x = convert(e.locationInWindow, from: nil).x
         if e.modifierFlags.contains(.command) || e.modifierFlags.contains(.option) {
